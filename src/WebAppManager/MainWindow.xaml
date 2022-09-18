@@ -1,0 +1,70 @@
+﻿<!--
+    // Copyright (c) 2022, Siemens AG
+    //
+    // SPDX-License-Identifier: MIT
+-->
+    <Window x:Class="Webserver.Api.Gui.MainWindow"
+        WindowStartupLocation="CenterOwner"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:Webserver.Api.Gui"
+        xmlns:CustomControls="clr-namespace:Webserver.Api.Gui.CustomControls" 
+        mc:Ignorable="d"
+        Height="670" Width="800">
+    <DockPanel>
+        <Menu DockPanel.Dock="Top" FontSize="12" x:Name="MenuElement">
+            <MenuItem Header="_File">
+                <MenuItem Header="_Save Settings" x:Name="SaveSettingsMenuItem" Click="SaveSettingsMenuItem_Click"/>
+                <MenuItem Header="_Save Settings As ..." x:Name="SaveSettingsAsMenuItem" Click="SaveSettingsAsMenuItem_Click"/>
+                <MenuItem Header="_Load Settings ..." x:Name="LoadSettingsMenuItem" Click="LoadSettingsMenuItem_Click"/>
+            </MenuItem>
+            <MenuItem Header="_Help">
+                <MenuItem Header="_Help Main" x:Name="ShowHelpMenuItem" Click="ShowHelpMenuItem_Click"></MenuItem>
+            </MenuItem>
+        </Menu>
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="2*"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            <Button Grid.Column="0" Grid.Row="0" Margin="10,10,10,0"  Name="WebAppConfigCreatorWindowCreator" Click="WebAppConfigCreatorWindowCreator_Click">Edit WebApplication(s) or create config</Button>
+            <TextBlock Grid.Column="1" Grid.Row="0" Margin="10,10,10,0">Add existing configuration file(s)</TextBlock>
+            <Button Grid.Column="2" Grid.Row="0" Margin="10,10,10,0"  Name="WebAppConfigAdder" Click="WebAppConfigAdder_Click">...</Button>
+            <CustomControls:SelectionSettingsControl 
+                        x:Name="WebAppDeploySelectionSettingsControl"
+                        Grid.ColumnSpan="3" Grid.Row="1" Margin="0,10,0,10" 
+                        Settings="{Binding ElementName=this,Path=ApplicationSettings.WebAppDeploySelectionSettings,Mode=TwoWay,UpdateSourceTrigger=PropertyChanged}">
+            </CustomControls:SelectionSettingsControl>
+
+
+            <Button  Grid.Column="0" Grid.Row="3" Margin="10,10,10,0" Name="PlcRackConfigCreatorWindow" Click="PlcRackConfigCreatorWindow_Click">Edit Plc Rack configuration(s) or create config</Button>
+            <TextBlock Grid.Column="1" Grid.Row="3" Margin="10,10,10,0">Add existing configuration file(s)</TextBlock>
+            <Button Grid.Column="2" Grid.Row="3" Margin="10,10,10,0"  Name="PlcRackConfigAdder" Click="PlcRackConfigAdder_Click">...</Button>
+
+            <CustomControls:SelectionSettingsControl 
+                        x:Name="PlcRackSelectionSettingsControl"
+                        Grid.ColumnSpan="3" Grid.Row="5" Margin="0,10,0,10" 
+                        Settings="{Binding ElementName=this,Path=ApplicationSettings.RackSelectionSettings,Mode=TwoWay,UpdateSourceTrigger=PropertyChanged}">
+            </CustomControls:SelectionSettingsControl>
+
+            <GroupBox Grid.ColumnSpan="2" Grid.Row="6">
+                <Button Name="StartDeploymentBtn" Click="StartDeploymentBtnAndCreateJsonConfigFile_Click">Start Deployment</Button>
+            </GroupBox>
+            <GroupBox Grid.Column="3" Grid.Row="6">
+                <Button Name="StartDeleteBtn" Click="StartDeleteBtn_Click">Delete WebApps</Button>
+            </GroupBox>
+        </Grid>
+    </DockPanel>
+</Window>

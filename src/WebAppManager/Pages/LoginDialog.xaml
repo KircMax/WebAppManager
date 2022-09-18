@@ -1,0 +1,21 @@
+﻿<!--
+    // Copyright (c) 2022, Siemens AG
+    //
+    // SPDX-License-Identifier: MIT
+-->
+<Window x:Class="Webserver.Api.Gui.Pages.LoginDialog"
+        WindowStartupLocation="CenterOwner"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:Webserver.Api.Gui.Pages"
+        mc:Ignorable="d"
+        Title="LoginDialog" Height="450" Width="800">
+    <StackPanel>
+        <TextBlock Name="PlcIpOrDnsNameInput" Text="Please provide the login for Plc ip/dns: " />
+        <TextBox x:Name="UserNameTextBox" />
+        <PasswordBox x:Name="PasswordNameTextBox"></PasswordBox>
+        <Button Margin="0,10,0,0" Content="OK" Click="OKButton_Click" />
+    </StackPanel>
+</Window>

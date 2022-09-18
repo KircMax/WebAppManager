@@ -1,0 +1,46 @@
+﻿<!--
+    // Copyright (c) 2022, Siemens AG
+    //
+    // SPDX-License-Identifier: MIT
+-->
+<UserControl x:Class="Webserver.Api.Gui.CustomControls.SelectionSettingsControl"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+      xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+      xmlns:local="clr-namespace:Webserver.Api.Gui.CustomControls"
+      mc:Ignorable="d" 
+      d:DesignHeight="300" d:DesignWidth="800" x:Name="this">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="3*"/>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="3*"/>
+        </Grid.ColumnDefinitions>
+        <GroupBox Header="Available Items" Grid.Row="0" Grid.Column="0">
+            <ListBox x:Name="AvailableItemsSelect" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" 
+                         ItemsSource="{Binding ElementName=this,Path=Settings.AvailableItems.Values, UpdateSourceTrigger=PropertyChanged}"
+                         SelectionMode="Extended"></ListBox>
+        </GroupBox>
+        <StackPanel Grid.Row="0" Grid.Column="1" Margin="0,20,0,20">
+            <Button x:Name="SelectAllBtn" Margin="20,5,20,15" Click="SelectAllBtn_Click">>></Button>
+            <Button x:Name="SelectSingleBtn" Margin="20,5,20,15" 
+                        Click="SelectSingleBtn_Click">></Button>
+            <Separator></Separator>
+            <Button x:Name="RemoveSingleBtn" Margin="20,5,20,15" Click="RemoveSingleBtn_Click"
+                        Content="&lt;"></Button>
+            <Button x:Name="RemoveAllBtn" Margin="20,5,20,15" Click="RemoveAllBtn_Click" 
+                        Content="&lt;&lt;"></Button>
+            <Button x:Name="DeleteSelectedBtn" Margin="20,5,20,15" Click="DeleteSelectedBtn_Click"
+                        Content="Delete"></Button>
+        </StackPanel>
+        <GroupBox Header="Selected Items" Grid.Row="0" Grid.Column="2">
+            <ListBox x:Name="SelectedItemsSelect" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" 
+                         ItemsSource="{Binding ElementName=this,Path=Settings.SelectedItems,Mode=TwoWay,UpdateSourceTrigger=PropertyChanged}"
+                         SelectionMode="Extended"></ListBox>
+        </GroupBox>
+    </Grid>
+</UserControl>

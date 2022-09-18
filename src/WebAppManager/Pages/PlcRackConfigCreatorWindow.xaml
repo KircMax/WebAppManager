@@ -1,0 +1,28 @@
+﻿<!--
+    // Copyright (c) 2022, Siemens AG
+    //
+    // SPDX-License-Identifier: MIT
+-->
+<Window x:Class="Webserver.Api.Gui.Pages.PlcRackConfigCreatorWindow"
+        WindowStartupLocation="CenterOwner"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:Webserver.Api.Gui.Pages"
+        xmlns:CustomControls="clr-namespace:Webserver.Api.Gui.CustomControls"
+        mc:Ignorable="d"
+        Title="PlcRackConfigCreatorWindow" Height="450" Width="800">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="auto"></RowDefinition>
+            <RowDefinition Height="auto"></RowDefinition>
+        </Grid.RowDefinitions>
+        <CustomControls:PlcRackConfigCreatorControl
+            Grid.Row="0"
+            Margin="0,15,0,15"
+            x:Name="PlcRackConfigCreatorControl"
+            Settings="{Binding ElementName=this,Path=Settings.PlcRackConfigCreatorControlSettings,Mode=TwoWay,UpdateSourceTrigger=PropertyChanged}"></CustomControls:PlcRackConfigCreatorControl>
+        <Button Grid.ColumnSpan="3" Grid.Row="5" Name="BackToMainApplication" Click="BackToMainApplication_Click">Back to Main Application</Button>
+    </Grid>
+</Window>

@@ -1,0 +1,15 @@
+﻿// Copyright (c) 2022, Siemens AG
+//
+// SPDX-License-Identifier: MIT
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using Webserver.Api.Gui.WebAppManagerEvents.WebAppMangagerEventArgs;
+
+namespace Webserver.Api.Gui.WebAppManagerEvents
+{
+    public delegate void WebAppDirectorySettingsChanged(object sender, WebAppDirectorySettingsChangedArgs e);
+
+}

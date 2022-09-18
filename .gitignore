@@ -1,0 +1,16 @@
+﻿################################################################################
+# This .gitignore file was automatically created by Microsoft(R) Visual Studio.
+################################################################################
+
+.vs/
+bin/
+obj/
+deployedpackages/
+documentation/~$*.docx
+documentation/~*.tmp
+/src/TiflibExtension
+.vscode
+packages/
+Webserver.Api.ExampleOfUse/
+
+**/HW/**.json

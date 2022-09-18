@@ -1,0 +1,43 @@
+﻿<!--
+    // Copyright (c) 2022, Siemens AG
+    //
+    // SPDX-License-Identifier: MIT
+-->
+<Window x:Class="Webserver.Api.Gui.Pages.WebAppConfigCreatorWindow"
+        WindowStartupLocation="CenterOwner"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:Webserver.Api.Gui.Pages"
+        xmlns:CustomControls="clr-namespace:Webserver.Api.Gui.CustomControls"
+        mc:Ignorable="d"
+        Title="WebAppConfigCreatorWindow" Height="450" Width="800">
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <CustomControls:WebAppDirectorySettingsControl x:Name="WebAppDirectorySettingsControl" 
+                                                           Grid.Column="0" Grid.Row="0" Margin="15,0,15,10" 
+                                                           Settings="{Binding ElementName=this,Path=Settings.WebAppDirectorySettings,Mode=TwoWay,UpdateSourceTrigger=PropertyChanged}" >
+        </CustomControls:WebAppDirectorySettingsControl>
+        <CustomControls:WebAppSelectionSettingsControl x:Name="WebAppSelectionSettingsControl" 
+                                                           Grid.Column="0" Grid.Row="1" Margin="15,0,15,10" 
+                                                           Settings="{Binding ElementName=this,Path=Settings.WebAppSelectionSettings,Mode=TwoWay,UpdateSourceTrigger=PropertyChanged}" >
+        </CustomControls:WebAppSelectionSettingsControl>
+        <CustomControls:WebAppConfigurationSettingsControl x:Name="WebAppConfigurationSettingsControl" 
+                                                           Grid.Column="0" Grid.Row="2" Margin="15,0,15,10" 
+                                                           Settings="{Binding ElementName=this,Path=Settings.WebAppConfigurationSettings,Mode=TwoWay,UpdateSourceTrigger=PropertyChanged}" >
+        </CustomControls:WebAppConfigurationSettingsControl>
+        <Button Grid.ColumnSpan="3" Grid.Row="3" Name="Save_WebApp" Click="Save_WebApp_Click">Save configuration</Button>
+        <Button Grid.ColumnSpan="3" Grid.Row="4" Margin="0,10,0,0" Name="BackToMainApplication" Click="BackToMainApplication_Click">Back to Main Application</Button>
+    </Grid>
+</Window>
