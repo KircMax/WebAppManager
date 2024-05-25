@@ -265,16 +265,23 @@ namespace Webserver.Api.Gui
                         message += $"DeployOrUpdate failed for {app.Name} with {Environment.NewLine}{ex.GetType()}:{ex.Message}";
                     }
                 }
-                if (!Task.WaitAll(tasks.ToArray(), TimeSpan.FromMinutes(10)))
+                try
                 {
-                    message += "could not successfully deploy all apps!";
-                }
-                else
-                {
-                    foreach(var handler in handlers)
+                    if (!Task.WaitAll(tasks.ToArray(), TimeSpan.FromMinutes(10)))
                     {
-                        await handler.ApiLogoutAsync();
+                        message += "could not successfully deploy all apps!";
                     }
+                    else
+                    {
+                        foreach (var handler in handlers)
+                        {
+                            await handler.ApiLogoutAsync();
+                        }
+                    }
+                } //JB 2024-04-29 ergänzt
+                catch (Exception ex)
+                {
+                    message += $"DeployOrUpdate failed for {app.Name} with {Environment.NewLine}{Environment.NewLine}{ex.GetType()}:{ex.InnerException.Message} and {Environment.NewLine}{Environment.NewLine}{ex.GetType()}:{ex.InnerException.InnerException.Message}";
                 }
             }
             if (message == "")
@@ -621,11 +628,17 @@ namespace Webserver.Api.Gui
                         message += $"Delete App failed for {app.Name} with {Environment.NewLine}{ex.GetType()}:{ex.Message}";
                     }
                 }
-                if (!Task.WaitAll(tasks.ToArray(), TimeSpan.FromMinutes(10)))
+                try {
+                    if (!Task.WaitAll(tasks.ToArray(), TimeSpan.FromMinutes(10)))
+                    {
+                        message += "could not successfully deploy all apps!";
+                    }
+                } //JB 2024-04-29 ergänzt
+                catch (Exception ex)
                 {
-                    message += "could not successfully deploy all apps!";
+                    message += $"DeployOrUpdate failed for {app.Name} with {Environment.NewLine}{Environment.NewLine}{ex.GetType()}:{ex.InnerException.Message} and {Environment.NewLine}{Environment.NewLine}{ex.GetType()}:{ex.InnerException.InnerException.Message}";
                 }
-            }
+        }
             if (message == "")
             {
                 message = $"Successfully deleted all WebApplications in {overallwatch.Elapsed}";
