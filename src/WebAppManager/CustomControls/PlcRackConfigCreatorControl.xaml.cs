@@ -18,6 +18,7 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
+using System.Windows.Forms;
 using Webserver.Api.Gui.Settings;
 using Webserver.Api.Gui.WebAppManagerEvents;
 
@@ -26,7 +27,7 @@ namespace Webserver.Api.Gui.CustomControls
     /// <summary>
     /// Interaction logic for PlcRackConfigCreatorControl.xaml
     /// </summary>
-    public partial class PlcRackConfigCreatorControl : UserControl
+    public partial class PlcRackConfigCreatorControl : System.Windows.Controls.UserControl
     {
         public static readonly DependencyProperty SettingsProperty =
             DependencyProperty.Register("Settings",
@@ -126,7 +127,7 @@ namespace Webserver.Api.Gui.CustomControls
             {
                 message += "Either the configuration already exists or the name is invalid!";
             }
-            MessageBox.Show(message);
+            System.Windows.MessageBox.Show(message);
         }
 
         private void Save_Rack_Click(object sender, RoutedEventArgs e)
@@ -137,11 +138,16 @@ namespace Webserver.Api.Gui.CustomControls
                 Settings.Save(System.IO.Path.Combine(SettingsDirectory, Settings.FileName));
                 message += $"saved Rack {Settings.SelectedRack} successfully to {Settings.FileName}!";
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
-                message += $"could not save rack {Settings.SelectedRack} to {Environment.NewLine}{Settings.FileName} successfully!{Environment.NewLine}{ex.GetType()}{ex.Message}";
+                DialogResult result = System.Windows.Forms.MessageBox.Show(
+                        $"could not save rack {Settings.SelectedRack} " +
+                        $"{Environment.NewLine}{Settings.FileName} successfully!" +
+                        $"{Environment.NewLine}{ex.GetType()}{ex.Message}",
+                        "Save Error",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Error);
             }
-            MessageBox.Show(message);
         }
     }
 }

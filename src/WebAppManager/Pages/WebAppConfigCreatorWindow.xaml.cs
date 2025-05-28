@@ -23,7 +23,6 @@ using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
 using Webserver.Api.Gui.Settings;
 using Webserver.Api.Gui.WebAppManagerEvents.WebAppMangagerEventArgs;
-
 namespace Webserver.Api.Gui.Pages
 {
     /// <summary>
@@ -31,6 +30,8 @@ namespace Webserver.Api.Gui.Pages
     /// </summary>
     public partial class WebAppConfigCreatorWindow : Window
     {
+        // added flag to avoid constant loop on close
+        private bool isClosingManually = false;
         public static readonly DependencyProperty SettingsProperty =
             DependencyProperty.Register("Settings",
                 typeof(WebAppConfigCreatorSettings),
@@ -134,8 +135,23 @@ namespace Webserver.Api.Gui.Pages
         private void Save_WebApp_Click(object sender, RoutedEventArgs e)
         {
             var saveSetting = new ApiWebAppDataSaveSetting();
+
             var saver = new ApiWebAppDataSaver(saveSetting);
-            saver.Save(Settings.WebAppConfigurationSettings.WebAppData);
+            try
+            {
+                saver.Save(Settings.WebAppConfigurationSettings.WebAppData);
+            }
+            catch (Exception ex)
+            {
+                System.Windows.Forms.MessageBox.Show(
+                    $"Error saving WebApp configuration: {ex.Message}",
+                    "Save Error",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+                    this.Close();
+                return;
+            }
+            
             var webAppManagerSettings = new WebAppManagerSettings();
             string path = System.IO.Path.Combine(CurrentExeDir.FullName,StandardValues.SettingsDirectoryName, StandardValues.StandardSaveFileName);
             if (!File.Exists(path))
@@ -148,9 +164,42 @@ namespace Webserver.Api.Gui.Pages
             webAppManagerSettings.Save(System.IO.Path.Combine(CurrentExeDir.FullName, StandardValues.SettingsDirectoryName));
             System.Windows.Forms.MessageBox.Show("Saved successfully!");
         }
+        protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
+        {
+            // Only perform our custom closing if not already being handled
+            if (!isClosingManually)
+            {
+                e.Cancel = true; // Cancel the default closing
 
+                // Use Dispatcher to safely create and show the new window
+                System.Windows.Application.Current.Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    try
+                    {
+                        // Create and show the main window first
+                        MainWindow window = new MainWindow();
+                        SetWindowScreen(window, GetWindowScreen(App.Current.MainWindow));
+                        window.Show();
+
+                        // Then mark as closing and close this window
+                        isClosingManually = true;
+                        this.Close();
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Windows.MessageBox.Show($"Error during window transition: {ex.Message}");
+                    }
+                }));
+            }
+
+            base.OnClosing(e);
+        }
+
+        // Modify your existing back button method to use the same pattern
         private void BackToMainApplication_Click(object sender, RoutedEventArgs e)
         {
+            isClosingManually = true; // Set flag to prevent recursion
+
             MainWindow window = new MainWindow();
             SetWindowScreen(window, GetWindowScreen(App.Current.MainWindow));
             window.Show();
