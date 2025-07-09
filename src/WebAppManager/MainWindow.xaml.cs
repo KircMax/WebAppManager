@@ -265,31 +265,43 @@ namespace Webserver.Api.Gui
                         message += $"DeployOrUpdate failed for {app.Name} with {Environment.NewLine}{ex.GetType()}:{ex.Message}";
                     }
                 }
-                try
+                if (!Task.WaitAll(tasks.ToArray(), TimeSpan.FromMinutes(10)))
                 {
-                    if (!Task.WaitAll(tasks.ToArray(), TimeSpan.FromMinutes(10)))
-                    {
-                        message += "could not successfully deploy all apps!";
-                    }
-                    else
+                    message += "could not successfully deploy all apps!";
+                }
+                else
+                {
+                    try
                     {
                         foreach (var handler in handlers)
                         {
                             await handler.ApiLogoutAsync();
                         }
                     }
-                } //JB 2024-04-29 ergänzt
-                catch (Exception ex)
-                {
-                    message += $"DeployOrUpdate failed for {app.Name} with {Environment.NewLine}{Environment.NewLine}{ex.GetType()}:{ex.InnerException.Message} and {Environment.NewLine}{Environment.NewLine}{ex.GetType()}:{ex.InnerException.InnerException.Message}";
+                    catch (Exception ex)
+                    {
+                        message += $"Logout request failed. and {Environment.NewLine}{ex.GetType()}:{ex.InnerException.Message} and {Environment.NewLine}{Environment.NewLine}{ex.GetType()}:{ex.InnerException.InnerException.Message}";
+                    }
                 }
             }
-            if (message == "")
+            if (string.IsNullOrEmpty(message) && applicationsToDeploy.Count > 0 && deployers.Count > 0)
             {
                 message = $"Successfully deployed all WebApplications in {overallwatch.Elapsed}";
             }
+            else
+            {
+                if (applicationsToDeploy.Count == 0)
+                {
+                    message = $"No application to Deploy.";
+                }
+
+                if (deployers.Count == 0)
+                {
+                    message = $"{message} No PLC to deploy in.";
+                }
+            }
             this.Cursor = System.Windows.Input.Cursors.Arrow;
-            System.Windows.MessageBox.Show(message);
+            System.Windows.MessageBox.Show(message.Trim());
         }
 
 
@@ -452,7 +464,8 @@ namespace Webserver.Api.Gui
                     this.PlcRackSelectionSettingsControl.AvailableItemsSelect.Items.Refresh();
                 }
             }
-            System.Windows.MessageBox.Show(message);
+            if (!string.IsNullOrEmpty(message))
+                System.Windows.MessageBox.Show(message);
         }
 
         private void WebAppConfigAdder_Click(object sender, RoutedEventArgs e)
@@ -497,7 +510,8 @@ namespace Webserver.Api.Gui
                     this.WebAppDeploySelectionSettingsControl.AvailableItemsSelect.Items.Refresh();
                 }
             }
-            System.Windows.MessageBox.Show(message);
+            if(!string.IsNullOrEmpty(message))
+                System.Windows.MessageBox.Show(message);
         }
 
         private void ShowHelpMenuItem_Click(object sender, RoutedEventArgs e)
@@ -600,7 +614,8 @@ namespace Webserver.Api.Gui
                     }
                     catch (Exception ex)
                     {
-                        message = ex.GetType() + ex.Message + " has occured!";
+                        message = ex.GetType() + ex.Message + " has occured! " +
+                                  "Check if the web server is activated on the plc";
                         System.Windows.MessageBox.Show(message);
                     }
                 }
@@ -628,22 +643,31 @@ namespace Webserver.Api.Gui
                         message += $"Delete App failed for {app.Name} with {Environment.NewLine}{ex.GetType()}:{ex.Message}";
                     }
                 }
-                try {
-                    if (!Task.WaitAll(tasks.ToArray(), TimeSpan.FromMinutes(10)))
-                    {
-                        message += "could not successfully deploy all apps!";
-                    }
-                } //JB 2024-04-29 ergänzt
-                catch (Exception ex)
+                if (!Task.WaitAll(tasks.ToArray(), TimeSpan.FromMinutes(10)))
                 {
-                    message += $"DeployOrUpdate failed for {app.Name} with {Environment.NewLine}{Environment.NewLine}{ex.GetType()}:{ex.InnerException.Message} and {Environment.NewLine}{Environment.NewLine}{ex.GetType()}:{ex.InnerException.InnerException.Message}";
+                    message += "could not successfully deploy all apps!";
                 }
-        }
-            if (message == "")
+            }
+
+            if (string.IsNullOrEmpty(message) && handlers.Count > 0)
             {
                 message = $"Successfully deleted all WebApplications in {overallwatch.Elapsed}";
             }
-            System.Windows.MessageBox.Show(message);
+            else
+            {
+                if (applicationsToDelete.Count == 0)
+                {
+                    message = $"No application to Delete.";
+                }
+
+                if (handlers.Count == 0)
+                {
+                    message = $"{message} No PLC.";
+                }
+            }
+            this.Cursor = System.Windows.Input.Cursors.Arrow;
+            if (!string.IsNullOrEmpty(message))
+                System.Windows.MessageBox.Show(message.Trim());
         }
     }
 }

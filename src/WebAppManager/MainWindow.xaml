@@ -12,7 +12,8 @@
         xmlns:local="clr-namespace:Webserver.Api.Gui"
         xmlns:CustomControls="clr-namespace:Webserver.Api.Gui.CustomControls" 
         mc:Ignorable="d"
-        Height="670" Width="800">
+        Height="670" Width="800"
+        MinHeight="670" MinWidth="800">
     <DockPanel>
         <Menu DockPanel.Dock="Top" FontSize="12" x:Name="MenuElement">
             <MenuItem Header="_File">
