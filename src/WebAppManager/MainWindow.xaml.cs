@@ -217,6 +217,9 @@ namespace Webserver.Api.Gui
                                 }
                             }
                             handlers.Add(requestHandler);
+                            var permissions = await requestHandler.ApiGetPermissionsAsync();
+                            var permissionsString = string.Join(", ", permissions.Result.Select(el => el.ToString()));
+                            Console.WriteLine($"Permissions for {plc} with user: {username} {permissionsString}");
                             var deployer = (ApiWebAppDeployer)serviceFactory.GetApiWebAppDeployer(requestHandler);
                             deployers.Add(deployer);
                         }
