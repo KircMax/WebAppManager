@@ -140,9 +140,7 @@ namespace Webserver.Api.Gui
                 var app = configParser.Parse();
                 applicationsToDeploy.Add(app);
             }
-            List<ApiHttpClientRequestHandler> handlers = new List<ApiHttpClientRequestHandler>();
-            List<ApiWebAppDeployer> deployers = new List<ApiWebAppDeployer>();
-            var watches = new List<Stopwatch>();
+            var deployers = new List<(string plc, ApiWebAppDeployer deployer, ApiHttpClientRequestHandler requestHandler)>();
             List<string> plcsToDeployTo = new List<string>();
             List<Task> tasks = new List<Task>();
             List<string> plcsToTrust = new List<string>();
@@ -216,12 +214,11 @@ namespace Webserver.Api.Gui
                                     throw ex;
                                 }
                             }
-                            handlers.Add(requestHandler);
                             var permissions = await requestHandler.ApiGetPermissionsAsync();
                             var permissionsString = string.Join(", ", permissions.Result.Select(el => el.ToString()));
                             Console.WriteLine($"Permissions for {plc} with user: {username} {permissionsString}");
                             var deployer = (ApiWebAppDeployer)serviceFactory.GetApiWebAppDeployer(requestHandler);
-                            deployers.Add(deployer);
+                            deployers.Add((plc, deployer, requestHandler));
                         }
                     }
                     catch (Exception ex)
@@ -233,60 +230,61 @@ namespace Webserver.Api.Gui
             }
             Stopwatch overallwatch = new Stopwatch();
             overallwatch.Start();
-            foreach (var app in applicationsToDeploy)
+            try
             {
-                foreach (var depl in deployers)
+                foreach (var app in applicationsToDeploy)
                 {
-                    tasks.Add(Task.Run(async () =>
+                    foreach (var deployer in deployers)
                     {
-                        var stopwatch = new Stopwatch();
-                        watches.Add(stopwatch);
-                        stopwatch.Start();
-                        try
+                        var myTask = Task.Run(async () =>
                         {
-                            await depl.DeployOrUpdateAsync(app);
-                        }
-                        catch (Exception ex)
-                        {
-                            message += $"DeployOrUpdate failed for {app.Name} with {Environment.NewLine}{ex.GetType()}:{ex.Message}{Environment.NewLine}";
-                        }
-                        stopwatch.Stop();
-                        Console.WriteLine($"Successfully deployed app {app.Name} in {stopwatch.Elapsed}");
-                    }));
+                            var started = DateTime.Now;
+                            try
+                            {
+                                Console.WriteLine($"Start deploy app {app.Name} to {deployer.plc}");
+                                await deployer.deployer.DeployOrUpdateAsync(app);
+                                Console.WriteLine($"Successfully deployed app {app.Name} to {deployer.plc} in {DateTime.Now - started}");
+                            }
+                            catch (Exception ex)
+                            {
+                                message += $"DeployOrUpdate failed for {app.Name} to {deployer.plc} with {Environment.NewLine}{ex.GetType()}:{ex.Message}{Environment.NewLine}";
+                            }
+                        });
+                        tasks.Add(myTask);
+                    }
+                    if (!Task.WaitAll(tasks.ToArray(), TimeSpan.FromMinutes(10)))
+                    {
+                        message += $"could not successfully deploy all apps!";
+                    }
                 }
-                if (!Task.WaitAll(tasks.ToArray(), TimeSpan.FromMinutes(10)))
+                if (string.IsNullOrEmpty(message) && applicationsToDeploy.Count > 0 && deployers.Count > 0)
                 {
-                    message += "could not successfully deploy all apps!";
+                    message = $"Successfully deployed all WebApplications in {overallwatch.Elapsed}";
                 }
                 else
                 {
-                    foreach (var handler in handlers)
+                    if (applicationsToDeploy.Count == 0)
                     {
-                        try
-                        {
-                            await handler.ApiLogoutAsync();
-                        }
-                        catch (Exception ex)
-                        {
-                            message += $"Logout request failed. and {Environment.NewLine}{ex.GetType()}:{ex.InnerException.Message} and {Environment.NewLine}{Environment.NewLine}{ex.GetType()}:{ex.InnerException.InnerException.Message}";
-                        }
+                        message = $"No application to Deploy.";
+                    }
+                    if (deployers.Count == 0)
+                    {
+                        message = $"{message} No PLC to deploy in.";
                     }
                 }
             }
-            if (string.IsNullOrEmpty(message) && applicationsToDeploy.Count > 0 && deployers.Count > 0)
+            finally
             {
-                message = $"Successfully deployed all WebApplications in {overallwatch.Elapsed}";
-            }
-            else
-            {
-                if (applicationsToDeploy.Count == 0)
+                foreach (var handler in deployers)
                 {
-                    message = $"No application to Deploy.";
-                }
-
-                if (deployers.Count == 0)
-                {
-                    message = $"{message} No PLC to deploy in.";
+                    try
+                    {
+                        await handler.requestHandler.ApiLogoutAsync();
+                    }
+                    catch (Exception ex)
+                    {
+                        message += $"Logout request for {handler.plc} failed. and {Environment.NewLine}{ex.GetType()}:{ex.InnerException.Message} and {Environment.NewLine}{Environment.NewLine}{ex.GetType()}:{ex.InnerException.InnerException.Message}";
+                    }
                 }
             }
             this.Cursor = System.Windows.Input.Cursors.Arrow;
