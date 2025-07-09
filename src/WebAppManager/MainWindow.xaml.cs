@@ -271,9 +271,16 @@ namespace Webserver.Api.Gui
                 }
                 else
                 {
-                    foreach(var handler in handlers)
+                    try
                     {
-                        await handler.ApiLogoutAsync();
+                        foreach (var handler in handlers)
+                        {
+                            await handler.ApiLogoutAsync();
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        message += $"Logout request failed. and {Environment.NewLine}{ex.GetType()}:{ex.InnerException.Message} and {Environment.NewLine}{Environment.NewLine}{ex.GetType()}:{ex.InnerException.InnerException.Message}";
                     }
                 }
             }
@@ -644,7 +651,7 @@ namespace Webserver.Api.Gui
 
             if (string.IsNullOrEmpty(message) && handlers.Count > 0)
             {
-                message = $"Successfully deployed all WebApplications in {overallwatch.Elapsed}";
+                message = $"Successfully deleted all WebApplications in {overallwatch.Elapsed}";
             }
             else
             {
