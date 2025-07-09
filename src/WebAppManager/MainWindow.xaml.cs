@@ -10,31 +10,17 @@ using Siemens.Simatic.S7.Webserver.API.Services.RequestHandling;
 using Siemens.Simatic.S7.Webserver.API.Services.WebApp;
 using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
-using System.Text;
-using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
 using System.Windows.Forms;
-using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
-using System.Windows.Shapes;
-using Webserver.Api.Gui.CustomControls;
 using Webserver.Api.Gui.Pages;
 using Webserver.Api.Gui.Settings;
-using Webserver.Api.Gui.WebAppManagerEvents;
 using Webserver.Api.Gui.WebAppManagerEvents.WebAppMangagerEventArgs;
-using static System.Windows.Forms.VisualStyles.VisualStyleElement.StartPanel;
 
 namespace Webserver.Api.Gui
 {
@@ -96,7 +82,7 @@ namespace Webserver.Api.Gui
             this.PlcRackSelectionSettingsControl.SelectionSettingsAvailableItemsChanged += AvailableItemsPlcRackChanged;
             this.WebAppDeploySelectionSettingsControl.SelectionSettingsAvailableItemsChanged += AvailableItemsWebAppDeployChanged;
         }
-        
+
         private void AvailableItemsWebAppDeployChanged(object sender, SelectionSettingsAvailableItemsChangedArgs e)
         {
             this.WebAppDeploySelectionSettingsControl.AvailableItemsSelect.Items.Refresh();
@@ -208,7 +194,7 @@ namespace Webserver.Api.Gui
                                 {
                                     var assumeItsExpectedWebException = true; // created this bool since the exception message is languagedependant
                                     if (ex.InnerException.Message == "The underlying connection was closed: Could not establish trust relationship for the SSL/TLS secure channel."
-                                        ||ex.Message== "Die zugrunde liegende Verbindung wurde geschlossen: Für den geschützten SSL/TLS-Kanal konnte keine Vertrauensstellung hergestellt werden.."
+                                        || ex.Message == "Die zugrunde liegende Verbindung wurde geschlossen: Für den geschützten SSL/TLS-Kanal konnte keine Vertrauensstellung hergestellt werden.."
                                         || assumeItsExpectedWebException)
                                     {
                                         var result = System.Windows.MessageBox.Show("The plc certificate was not considered trusted! Do you want to connect anyways?", "ERR_CERT_AUTHORITY_INVALID", MessageBoxButton.YesNo);
@@ -248,22 +234,22 @@ namespace Webserver.Api.Gui
             {
                 foreach (var depl in deployers)
                 {
-                    try
+                    tasks.Add(Task.Run(async () =>
                     {
                         var stopwatch = new Stopwatch();
                         watches.Add(stopwatch);
                         stopwatch.Start();
-                        tasks.Add(Task.Run(async () =>
+                        try
                         {
                             await depl.DeployOrUpdateAsync(app);
-                        }));
+                        }
+                        catch (Exception ex)
+                        {
+                            message += $"DeployOrUpdate failed for {app.Name} with {Environment.NewLine}{ex.GetType()}:{ex.Message}{Environment.NewLine}";
+                        }
                         stopwatch.Stop();
                         Console.WriteLine($"Successfully deployed app {app.Name} in {stopwatch.Elapsed}");
-                    }
-                    catch (Exception ex)
-                    {
-                        message += $"DeployOrUpdate failed for {app.Name} with {Environment.NewLine}{ex.GetType()}:{ex.Message}";
-                    }
+                    }));
                 }
                 if (!Task.WaitAll(tasks.ToArray(), TimeSpan.FromMinutes(10)))
                 {
@@ -271,16 +257,16 @@ namespace Webserver.Api.Gui
                 }
                 else
                 {
-                    try
+                    foreach (var handler in handlers)
                     {
-                        foreach (var handler in handlers)
+                        try
                         {
                             await handler.ApiLogoutAsync();
                         }
-                    }
-                    catch (Exception ex)
-                    {
-                        message += $"Logout request failed. and {Environment.NewLine}{ex.GetType()}:{ex.InnerException.Message} and {Environment.NewLine}{Environment.NewLine}{ex.GetType()}:{ex.InnerException.InnerException.Message}";
+                        catch (Exception ex)
+                        {
+                            message += $"Logout request failed. and {Environment.NewLine}{ex.GetType()}:{ex.InnerException.Message} and {Environment.NewLine}{Environment.NewLine}{ex.GetType()}:{ex.InnerException.InnerException.Message}";
+                        }
                     }
                 }
             }
@@ -437,10 +423,10 @@ namespace Webserver.Api.Gui
                         {
                             var rackContent = File.ReadAllText(selected);
                             var rack = JsonConvert.DeserializeObject<PlcRackConfigCreatorControlSettings>(rackContent);
-                            if(!string.IsNullOrEmpty(rack.SelectedRack))
+                            if (!string.IsNullOrEmpty(rack.SelectedRack))
                             {
                                 // rack is consistent!
-                                if(!this.ApplicationSettings.RackSelectionSettings.AvailableItems.Any(el => el.Value == rack.SelectedRack))
+                                if (!this.ApplicationSettings.RackSelectionSettings.AvailableItems.Any(el => el.Value == rack.SelectedRack))
                                 {
                                     this.ApplicationSettings.RackSelectionSettings.AvailableItems.Add(selected, rack.SelectedRack);
                                     message += "successfully added file" + selected;
@@ -499,7 +485,7 @@ namespace Webserver.Api.Gui
                             {
                                 message += $"An App with the name: {app.Name} already exists!";
                             }
-                            
+
                         }
                         catch (Exception ex)
                         {
@@ -510,7 +496,7 @@ namespace Webserver.Api.Gui
                     this.WebAppDeploySelectionSettingsControl.AvailableItemsSelect.Items.Refresh();
                 }
             }
-            if(!string.IsNullOrEmpty(message))
+            if (!string.IsNullOrEmpty(message))
                 System.Windows.MessageBox.Show(message);
         }
 
