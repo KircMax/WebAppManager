@@ -2,23 +2,11 @@
 //
 // SPDX-License-Identifier: MIT
 using Newtonsoft.Json;
-using Newtonsoft.Json.Serialization;
 using System;
-using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
 using System.Windows.Forms;
-using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Shapes;
 using Webserver.Api.Gui.Settings;
 
 namespace Webserver.Api.Gui.Pages
@@ -28,6 +16,7 @@ namespace Webserver.Api.Gui.Pages
     /// </summary>
     public partial class PlcRackConfigCreatorWindow : Window
     {
+        private bool isClosingManually = false;
         public static readonly DependencyProperty SettingsProperty =
            DependencyProperty.Register("Settings",
                typeof(PlcRackConfigCreatorSetting),
@@ -73,7 +62,7 @@ namespace Webserver.Api.Gui.Pages
         {
             Settings = new PlcRackConfigCreatorSetting();
             Settings.PlcRackConfigCreatorControlSettings = new PlcRackConfigCreatorControlSettings();
-            var mainSettingsDirectory = 
+            var mainSettingsDirectory =
             SettingsDirectory = System.IO.Path.Combine(CurrentExeDir.FullName, StandardValues.SettingsDirectoryName, StandardValues.RackConfigDirectoryName);
             if (!Directory.Exists(SettingsDirectory))
             {
@@ -90,9 +79,16 @@ namespace Webserver.Api.Gui.Pages
             ObservableCollection<string> list = new ObservableCollection<string>();
             foreach (var key in webAppManagerSettings.RackSelectionSettings.AvailableItems.Keys)
             {
-                var configcreatorSettingFileContent = File.ReadAllText(key);
-                var config = JsonConvert.DeserializeObject<PlcRackConfigCreatorControlSettings>(configcreatorSettingFileContent);
-                this.Settings.PlcRackConfigCreatorControlSettings.RackConfigurations[key] = config;
+                if (!File.Exists(key))
+                {
+                    System.Windows.MessageBox.Show($"File not found: {key}");
+                }
+                else
+                {
+                    var configcreatorSettingFileContent = File.ReadAllText(key);
+                    var config = JsonConvert.DeserializeObject<PlcRackConfigCreatorControlSettings>(configcreatorSettingFileContent);
+                    this.Settings.PlcRackConfigCreatorControlSettings.RackConfigurations[key] = config;
+                }
             }
         }
 
@@ -101,9 +97,42 @@ namespace Webserver.Api.Gui.Pages
             this.PlcRackConfigCreatorControl.Settings = Settings.PlcRackConfigCreatorControlSettings;
             this.PlcRackConfigCreatorControl.UpdateRackNames();
         }
+        protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
+        {
+            // Only perform our custom closing if not already being handled
+            if (!isClosingManually)
+            {
+                e.Cancel = true; // Cancel the default closing
 
+                // Use Dispatcher to safely create and show the new window
+                System.Windows.Application.Current.Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    try
+                    {
+                        // Create and show the main window first
+                        MainWindow window = new MainWindow();
+                        SetWindowScreen(window, GetWindowScreen(App.Current.MainWindow));
+                        window.Show();
+
+                        // Then mark as closing and close this window
+                        isClosingManually = true;
+                        this.Close();
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Windows.MessageBox.Show($"Error during window transition: {ex.Message}");
+                    }
+                }));
+            }
+
+            base.OnClosing(e);
+        }
+
+        // Modify your existing back button method to use the same pattern
         private void BackToMainApplication_Click(object sender, RoutedEventArgs e)
         {
+            isClosingManually = true; // Set flag to prevent recursion
+
             MainWindow window = new MainWindow();
             SetWindowScreen(window, GetWindowScreen(App.Current.MainWindow));
             window.Show();

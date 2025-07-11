@@ -19,7 +19,6 @@ using System.Net.Http;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Forms;
-using System.Windows.Media.Animation;
 using Webserver.Api.Gui.Pages;
 using Webserver.Api.Gui.Settings;
 using Webserver.Api.Gui.WebAppManagerEvents.WebAppMangagerEventArgs;
@@ -142,9 +141,7 @@ namespace Webserver.Api.Gui
                 var app = configParser.Parse();
                 applicationsToDeploy.Add(app);
             }
-            List<ApiHttpClientRequestHandler> handlers = new List<ApiHttpClientRequestHandler>();
-            List<ApiWebAppDeployer> deployers = new List<ApiWebAppDeployer>();
-            var watches = new List<Stopwatch>();
+            var deployers = new List<(string plc, ApiWebAppDeployer deployer, ApiHttpClientRequestHandler requestHandler)>();
             List<string> plcsToDeployTo = new List<string>();
             List<Task> tasks = new List<Task>();
             List<string> plcsToTrust = new List<string>();
@@ -218,9 +215,17 @@ namespace Webserver.Api.Gui
                                     throw ex;
                                 }
                             }
-                            handlers.Add(requestHandler);
+                            var permissions = await requestHandler.ApiGetPermissionsAsync();
+                            var permissionsString = string.Join(", ", permissions.Result.Select(el => el.ToString()));
+                            Console.WriteLine($"Permissions for {plc} with user: {username} {permissionsString}");
+                            var manageUserPagesRight = "manage_user_pages";
+                            if(!permissions.Result.Any(el => el.Name == manageUserPagesRight))
+                            {
+                                // all good
+                                System.Windows.MessageBox.Show($"User does not seem to have right to {manageUserPagesRight}, rights found: {Environment.NewLine}{permissionsString}");
+                            }
                             var deployer = (ApiWebAppDeployer)serviceFactory.GetApiWebAppDeployer(requestHandler);
-                            deployers.Add(deployer);
+                            deployers.Add((plc, deployer, requestHandler));
                         }
                     }
                     catch (Exception ex)
@@ -232,61 +237,73 @@ namespace Webserver.Api.Gui
             }
             Stopwatch overallwatch = new Stopwatch();
             overallwatch.Start();
-            foreach (var app in applicationsToDeploy)
+            try
             {
-                foreach (var depl in deployers)
+                foreach (var app in applicationsToDeploy)
+                {
+                    foreach (var deployer in deployers)
+                    {
+                        var myTask = Task.Run(async () =>
+                        {
+                            var started = DateTime.Now;
+                            try
+                            {
+                                Console.WriteLine($"Start deploy app {app.Name} to {deployer.plc}");
+                                var progressBar = new ProgressBarWithTextControl();
+                                progressBar.Name = app.Name;
+                                var progress = new Progress<int>(value => progressBar.ProgressBarValue = value);
+                                //progressBar.Show();
+                                //progressBar.BeginAnimation()
+                                Duration duration = new Duration(TimeSpan.FromSeconds(10));
+                                DoubleAnimation doubleanimation = new DoubleAnimation(100.0, duration);
+                                progressBar.BeginAnimation(ProgressBarWithTextControl.ProgressBarValueProperty, doubleanimation);
+                                await deployer.deployer.DeployOrUpdateAsync(app);
+                                Console.WriteLine($"Successfully deployed app {app.Name} to {deployer.plc} in {DateTime.Now - started}");
+                            }
+                            catch (Exception ex)
+                            {
+                                message += $"DeployOrUpdate failed for {app.Name} to {deployer.plc} with {Environment.NewLine}{ex.GetType()}:{ex.Message}{Environment.NewLine}";
+                            }
+                        });
+                        tasks.Add(myTask);
+                    }
+                    if (!Task.WaitAll(tasks.ToArray(), TimeSpan.FromMinutes(10)))
+                    {
+                        message += $"could not successfully deploy all apps!";
+                    }
+                }
+                if (string.IsNullOrEmpty(message) && applicationsToDeploy.Count > 0 && deployers.Count > 0)
+                {
+                    message = $"Successfully deployed all WebApplications in {overallwatch.Elapsed}";
+                }
+                else
+                {
+                    if (applicationsToDeploy.Count == 0)
+                    {
+                        message = $"No application to Deploy.";
+                    }
+                    if (deployers.Count == 0)
+                    {
+                        message = $"{message} No PLC to deploy in.";
+                    }
+                }
+            }
+            finally
+            {
+                foreach (var handler in deployers)
                 {
                     try
                     {
-                        //var progressBar = new ProgressBar();
-                        var progressBar = new ProgressBarWithTextControl();
-                        progressBar.Name = app.Name;
-                        var progress = new Progress<int>(value => progressBar.ProgressBarValue = value);
-                        //progressBar.Show();
-                        //progressBar.BeginAnimation()
-                        Duration duration = new Duration(TimeSpan.FromSeconds(10));
-                        DoubleAnimation doubleanimation = new DoubleAnimation(100.0, duration);
-                        progressBar.BeginAnimation(ProgressBarWithTextControl.ProgressBarValueProperty, doubleanimation);
-                        var stopwatch = new Stopwatch();
-                        watches.Add(stopwatch);
-                        stopwatch.Start();
-                        tasks.Add(Task.Run(async () =>
-                        {
-                            await depl.DeployOrUpdateAsync(app);
-                        }));
-                        stopwatch.Stop();
-                        Console.WriteLine($"Successfully deployed app {app.Name} in {stopwatch.Elapsed}");
+                        await handler.requestHandler.ApiLogoutAsync();
                     }
                     catch (Exception ex)
                     {
-                        message += $"DeployOrUpdate failed for {app.Name} with {Environment.NewLine}{ex.GetType()}:{ex.Message}";
+                        message += $"Logout request for {handler.plc} failed. and {Environment.NewLine}{ex.GetType()}:{ex.InnerException.Message} and {Environment.NewLine}{Environment.NewLine}{ex.GetType()}:{ex.InnerException.InnerException.Message}";
                     }
                 }
-                try
-                {
-                    if (!Task.WaitAll(tasks.ToArray(), TimeSpan.FromMinutes(10)))
-                    {
-                        message += "could not successfully deploy all apps!";
-                    }
-                    else
-                    {
-                        foreach (var handler in handlers)
-                        {
-                            await handler.ApiLogoutAsync();
-                        }
-                    }
-                } //JB 2024-04-29 ergänzt
-                catch (Exception ex)
-                {
-                    message += $"DeployOrUpdate failed for {app.Name} with {Environment.NewLine}{Environment.NewLine}{ex.GetType()}:{ex.InnerException.Message} and {Environment.NewLine}{Environment.NewLine}{ex.GetType()}:{ex.InnerException.InnerException.Message}";
-                }
-            }
-            if (message == "")
-            {
-                message = $"Successfully deployed all WebApplications in {overallwatch.Elapsed}";
             }
             this.Cursor = System.Windows.Input.Cursors.Arrow;
-            System.Windows.MessageBox.Show(message);
+            System.Windows.MessageBox.Show(message.Trim());
         }
 
 
@@ -449,7 +466,8 @@ namespace Webserver.Api.Gui
                     this.PlcRackSelectionSettingsControl.AvailableItemsSelect.Items.Refresh();
                 }
             }
-            System.Windows.MessageBox.Show(message);
+            if (!string.IsNullOrEmpty(message))
+                System.Windows.MessageBox.Show(message);
         }
 
         private void WebAppConfigAdder_Click(object sender, RoutedEventArgs e)
@@ -494,7 +512,8 @@ namespace Webserver.Api.Gui
                     this.WebAppDeploySelectionSettingsControl.AvailableItemsSelect.Items.Refresh();
                 }
             }
-            System.Windows.MessageBox.Show(message);
+            if (!string.IsNullOrEmpty(message))
+                System.Windows.MessageBox.Show(message);
         }
 
         private void ShowHelpMenuItem_Click(object sender, RoutedEventArgs e)
@@ -597,7 +616,8 @@ namespace Webserver.Api.Gui
                     }
                     catch (Exception ex)
                     {
-                        message = ex.GetType() + ex.Message + " has occured!";
+                        message = ex.GetType() + ex.Message + " has occured! " +
+                                  "Check if the web server is activated on the plc";
                         System.Windows.MessageBox.Show(message);
                     }
                 }
@@ -625,23 +645,31 @@ namespace Webserver.Api.Gui
                         message += $"Delete App failed for {app.Name} with {Environment.NewLine}{ex.GetType()}:{ex.Message}";
                     }
                 }
-                try
+                if (!Task.WaitAll(tasks.ToArray(), TimeSpan.FromMinutes(10)))
                 {
-                    if (!Task.WaitAll(tasks.ToArray(), TimeSpan.FromMinutes(10)))
-                    {
-                        message += "could not successfully deploy all apps!";
-                    }
-                } //JB 2024-04-29 ergänzt
-                catch (Exception ex)
-                {
-                    message += $"DeployOrUpdate failed for {app.Name} with {Environment.NewLine}{Environment.NewLine}{ex.GetType()}:{ex.InnerException.Message} and {Environment.NewLine}{Environment.NewLine}{ex.GetType()}:{ex.InnerException.InnerException.Message}";
+                    message += "could not successfully deploy all apps!";
                 }
             }
-            if (message == "")
+
+            if (string.IsNullOrEmpty(message) && handlers.Count > 0)
             {
                 message = $"Successfully deleted all WebApplications in {overallwatch.Elapsed}";
             }
-            System.Windows.MessageBox.Show(message);
+            else
+            {
+                if (applicationsToDelete.Count == 0)
+                {
+                    message = $"No application to Delete.";
+                }
+
+                if (handlers.Count == 0)
+                {
+                    message = $"{message} No PLC.";
+                }
+            }
+            this.Cursor = System.Windows.Input.Cursors.Arrow;
+            if (!string.IsNullOrEmpty(message))
+                System.Windows.MessageBox.Show(message.Trim());
         }
     }
 }

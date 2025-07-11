@@ -7,26 +7,17 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
-using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
-using System.Windows.Shapes;
+using System.Windows.Forms;
 using Webserver.Api.Gui.Settings;
-using Webserver.Api.Gui.WebAppManagerEvents;
 
 namespace Webserver.Api.Gui.CustomControls
 {
     /// <summary>
     /// Interaction logic for PlcRackConfigCreatorControl.xaml
     /// </summary>
-    public partial class PlcRackConfigCreatorControl : UserControl
+    public partial class PlcRackConfigCreatorControl : System.Windows.Controls.UserControl
     {
         public static readonly DependencyProperty SettingsProperty =
             DependencyProperty.Register("Settings",
@@ -80,12 +71,19 @@ namespace Webserver.Api.Gui.CustomControls
             {
                 var rackName = e.AddedItems[0].ToString();
                 var rackFilePath = Settings.RackConfigurations.First(el => el.Value.SelectedRack == rackName).Key;
-                string configFile = File.ReadAllText(rackFilePath);
-                var rack = JsonConvert.DeserializeObject<PlcRackConfigCreatorControlSettings>(configFile);
-                string guiString = "";
-                rack.RackPlcs.ForEach(el => guiString += el + ",");
-                Settings.FileName = rack.FileName;
-                Settings.RackPlcsGui = guiString;
+                if (!File.Exists(rackFilePath))
+                {
+                    System.Windows.MessageBox.Show($"File not found: {rackFilePath}");
+                }
+                else
+                {
+                    string configFile = File.ReadAllText(rackFilePath);
+                    var rack = JsonConvert.DeserializeObject<PlcRackConfigCreatorControlSettings>(configFile);
+                    string guiString = "";
+                    rack.RackPlcs.ForEach(el => guiString += el + ",");
+                    Settings.FileName = rack.FileName;
+                    Settings.RackPlcsGui = guiString;
+                }
             }
         }
 
@@ -126,7 +124,7 @@ namespace Webserver.Api.Gui.CustomControls
             {
                 message += "Either the configuration already exists or the name is invalid!";
             }
-            MessageBox.Show(message);
+            System.Windows.MessageBox.Show(message);
         }
 
         private void Save_Rack_Click(object sender, RoutedEventArgs e)
@@ -137,11 +135,16 @@ namespace Webserver.Api.Gui.CustomControls
                 Settings.Save(System.IO.Path.Combine(SettingsDirectory, Settings.FileName));
                 message += $"saved Rack {Settings.SelectedRack} successfully to {Settings.FileName}!";
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
-                message += $"could not save rack {Settings.SelectedRack} to {Environment.NewLine}{Settings.FileName} successfully!{Environment.NewLine}{ex.GetType()}{ex.Message}";
+                DialogResult result = System.Windows.Forms.MessageBox.Show(
+                        $"could not save rack {Settings.SelectedRack} " +
+                        $"{Environment.NewLine}{Settings.FileName} successfully!" +
+                        $"{Environment.NewLine}{ex.GetType()}{ex.Message}",
+                        "Save Error",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Error);
             }
-            MessageBox.Show(message);
         }
     }
 }

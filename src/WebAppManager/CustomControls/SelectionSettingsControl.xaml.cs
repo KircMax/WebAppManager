@@ -68,7 +68,10 @@ namespace Webserver.Api.Gui.CustomControls
             {
                 foreach (var item in selectedItems)
                 {
-                    Settings.SelectedItems.Add(item.ToString());
+                    if (!Settings.SelectedItems.Contains(item.ToString()))
+                    {
+                        Settings.SelectedItems.Add(item.ToString());
+                    }
                 }
             }
             RemoveDisplayControls();
@@ -160,20 +163,31 @@ namespace Webserver.Api.Gui.CustomControls
 
         public void CheckValidity()
         {
-            //Settings.IsValid = (Settings.SelectedItems != null && Settings.SelectedItems.Count > 0);
-            Settings.IsValid = true;
+            Settings.IsValid = (Settings.SelectedItems != null && Settings.SelectedItems.Count > 0) ||
+                               (Settings.AvailableItems != null && Settings.AvailableItems.Count > 0);
+            //Settings.IsValid = true;
         }
 
         private void DeleteSelectedBtn_Click(object sender, RoutedEventArgs e)
         {
             var selectedIndicies = GetSelectedIndicies(SelectedItemsSelect);
+            if (SelectedItemsSelect.SelectedItems.Count == 0) {selectedIndicies = GetSelectedIndicies(AvailableItemsSelect);}
             List<KeyValuePair<string,string>> deletedItems = new List<KeyValuePair<string, string>>();
-            if(selectedIndicies.Count > 0)
+            
+            if (selectedIndicies.Count > 0)
             {
                 List<string> items = new List<string>();
                 foreach (var selectedIndex in selectedIndicies)
                 {
-                    string item = Settings.SelectedItems[selectedIndex];
+                    string item;
+                    if (SelectedItemsSelect.SelectedItems.Count != 0)
+                    {
+                        item = Settings.SelectedItems[selectedIndex];
+                    }
+                    else
+                    {
+                        item = AvailableItemsSelect.SelectedItems[selectedIndex].ToString();
+                    }
                     items.Add(item);
                 }
                 foreach (var item in items)
