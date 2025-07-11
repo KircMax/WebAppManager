@@ -217,6 +217,12 @@ namespace Webserver.Api.Gui
                             var permissions = await requestHandler.ApiGetPermissionsAsync();
                             var permissionsString = string.Join(", ", permissions.Result.Select(el => el.ToString()));
                             Console.WriteLine($"Permissions for {plc} with user: {username} {permissionsString}");
+                            var manageUserPagesRight = "manage_user_pages";
+                            if(!permissions.Result.Any(el => el.Name == manageUserPagesRight))
+                            {
+                                // all good
+                                System.Windows.MessageBox.Show($"User does not seem to have right to {manageUserPagesRight}, rights found: {Environment.NewLine}{permissionsString}");
+                            }
                             var deployer = (ApiWebAppDeployer)serviceFactory.GetApiWebAppDeployer(requestHandler);
                             deployers.Add((plc, deployer, requestHandler));
                         }
