@@ -217,6 +217,7 @@
     <Compile Include="Settings\NotifyPropertyChangeBase.cs" />
     <Compile Include="Settings\PlcRackConfigCreatorSetting.cs" />
     <Compile Include="Settings\PlcRackConfigCreatorSettings.cs" />
+    <Compile Include="Settings\ProgressBarValue.cs" />
     <Compile Include="Settings\StandardValues.cs" />
     <Compile Include="Settings\WebAppConfigCreatorSettings.cs" />
     <Compile Include="Settings\WebAppConfigurationSettings.cs" />

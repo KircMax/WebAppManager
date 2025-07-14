@@ -1,4 +1,6 @@
-﻿using System.Windows;
+﻿using Siemens.Simatic.S7.Webserver.API.WebApplicationManager.Settings;
+using System.ComponentModel;
+using System.Windows;
 using System.Windows.Controls;
 
 namespace Siemens.Simatic.S7.Webserver.API.WebApplicationManager.CustomControls
@@ -6,22 +8,31 @@ namespace Siemens.Simatic.S7.Webserver.API.WebApplicationManager.CustomControls
     /// <summary>
     /// Interaction logic for ProgressBarWithText.xaml
     /// </summary>
-    public partial class ProgressBarWithTextControl : UserControl
+    public partial class ProgressBarWithTextControl : UserControl, INotifyPropertyChanged
     {
         public static readonly DependencyProperty ProgressBarValueProperty =
             DependencyProperty.Register("ProgressBarValue",
-                typeof(int),
+                typeof(ProgressBarValue),
                 typeof(ProgressBarWithTextControl));
 
-        public int ProgressBarValue
+        public event PropertyChangedEventHandler PropertyChanged;
+
+        private ProgressBarValue _progressBarValue
+        {
+            get;set;
+        }
+
+        public ProgressBarValue ProgressBarValue
         {
             get
             {
-                return (int)pbStatus.Value;
+                return _progressBarValue;
             }
             set
             {
-                pbStatus.Value = (double)value;
+                _progressBarValue = value;
+                pbStatus.Value = value?.Value ?? 0;
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ProgressBarValue)));
             }
         }
         public ProgressBarWithTextControl()

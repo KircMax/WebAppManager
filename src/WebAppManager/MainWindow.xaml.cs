@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2022, Siemens AG
+﻿// Copyright (c) 2025, Siemens AG
 //
 // SPDX-License-Identifier: MIT
 using Newtonsoft.Json;
@@ -9,17 +9,22 @@ using Siemens.Simatic.S7.Webserver.API.Services.FileParser;
 using Siemens.Simatic.S7.Webserver.API.Services.RequestHandling;
 using Siemens.Simatic.S7.Webserver.API.Services.WebApp;
 using Siemens.Simatic.S7.Webserver.API.WebApplicationManager.CustomControls;
+using Siemens.Simatic.S7.Webserver.API.WebApplicationManager.Settings;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
+using System.Runtime.ConstrainedExecution;
+using System.Security.Cryptography.X509Certificates;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Forms;
+using System.Windows.Input;
 using System.Windows.Media.Animation;
 using Webserver.Api.Gui.Pages;
 using Webserver.Api.Gui.Settings;
@@ -54,6 +59,31 @@ namespace Webserver.Api.Gui
             }
         }
 
+
+        public static readonly DependencyProperty ProgressBarValueProperty =
+            DependencyProperty.Register("ProgressBarValue",
+                typeof(ProgressBarValue),
+                typeof(MainWindow));
+
+        public ProgressBarValue ProgressBarValue
+        {
+            get
+            {
+                //return (int)MyProgressBar.ProgressBarValue;
+                //return (ProgressBarValue)GetValue(ProgressBarValueProperty);
+                return MyProgressBar?.ProgressBarValue;
+            }
+            set
+            {
+                //MyProgressBar.ProgressBarValue = value;
+                //SetValue(ProgressBarValueProperty, value);
+                if(MyProgressBar != null)
+                {
+                    MyProgressBar.ProgressBarValue = value;   
+                }
+            }
+        }
+
         /// <summary>
         /// Current Executing Directory
         /// </summary>
@@ -73,16 +103,15 @@ namespace Webserver.Api.Gui
 
             InitializeComponent();
 
-            DataContext = this;
-
             InitControlSettings();
-
+            DataContext = this;
         }
 
         private void InitControlSettings()
         {
             WebAppDeploySelectionSettingsControl.Settings = this.ApplicationSettings.WebAppDeploySelectionSettings;
             PlcRackSelectionSettingsControl.Settings = this.ApplicationSettings.RackSelectionSettings;
+            MyProgressBar.ProgressBarValue = this.ProgressBarValue;
             this.PlcRackSelectionSettingsControl.SelectionSettingsAvailableItemsChanged += AvailableItemsPlcRackChanged;
             this.WebAppDeploySelectionSettingsControl.SelectionSettingsAvailableItemsChanged += AvailableItemsWebAppDeployChanged;
         }
@@ -127,15 +156,18 @@ namespace Webserver.Api.Gui
                     sw.Write(settingsString);
                 }
             }
+            ProgressBarValue = new ProgressBarValue(1);
             SaveSettingsFilePath = path;
         }
 
         public bool RunWithLoginDialog = false;
         public bool RunWithCertificateCallbackDialog = false;
 
-        [System.STAThread]
+        public List<X509Certificate> TemporarilyTrustedCertificates = new List<X509Certificate>();
+
         private async void StartDeploymentBtnAndCreateJsonConfigFile_Click(object sender, RoutedEventArgs e)
         {
+            ProgressBarValue = new ProgressBarValue(0);
             var serviceFactory = new ApiStandardServiceFactory();
             this.Cursor = System.Windows.Input.Cursors.Wait;
             SaveSettingsToJsonFile(SaveSettingsFilePath);
@@ -155,11 +187,19 @@ namespace Webserver.Api.Gui
             var message = "";
             ServicePointManager.ServerCertificateValidationCallback += (mysender, certificate, chain, sslPolicyErrors) =>
             {
+                if(!RunWithCertificateCallbackDialog)
+                {
+                    return true;
+                }
                 if (mysender is System.Net.HttpWebRequest)
                 {
                     var mySenderRequest = mysender as HttpWebRequest;
                     var host = mySenderRequest.Address.Host;
-                    return (plcsToTrust.Contains(host));
+                    if (plcsToTrust.Contains(host))
+                    {
+                        TemporarilyTrustedCertificates.Add(certificate);
+                    }
+                    return (TemporarilyTrustedCertificates.Contains(certificate));
                 }
                 return false;
             };
@@ -179,10 +219,18 @@ namespace Webserver.Api.Gui
                             string password = "";
                             string username = "";
                             dialog.PlcIpOrDnsNameInput.Text += plc;
-                            if (dialog.ShowDialog() == true && RunWithLoginDialog)
+                            if(RunWithLoginDialog)
                             {
-                                password = dialog.PasswordNameTextBox.Password;
-                                username = dialog.UserNameTextBox.Text == "" ? "Anonymous" : dialog.UserNameTextBox.Text;
+                                if (dialog.ShowDialog() == true)
+                                {
+                                    password = dialog.PasswordNameTextBox.Password;
+                                    username = dialog.UserNameTextBox.Text == "" ? "Anonymous" : dialog.UserNameTextBox.Text;
+                                }
+                                else
+                                {
+                                    username = "Anonymous";
+                                    password = "";
+                                }
                             }
                             else
                             {
@@ -206,7 +254,7 @@ namespace Webserver.Api.Gui
                                         MessageBoxResult result = MessageBoxResult.Yes;
                                         if(RunWithCertificateCallbackDialog)
                                         {
-                                            result = System.Windows.MessageBox.Show("The plc certificate was not considered trusted! Do you want to connect anyways?", "ERR_CERT_AUTHORITY_INVALID", MessageBoxButton.YesNo);
+                                            result = System.Windows.MessageBox.Show($"The plc {plc} certificate was not considered trusted! Do you want to connect anyways?", "ERR_CERT_AUTHORITY_INVALID", MessageBoxButton.YesNo);
                                         }
                                         switch (result)
                                         {
@@ -250,6 +298,12 @@ namespace Webserver.Api.Gui
             overallwatch.Start();
             try
             {
+                int overallAmount = applicationsToDeploy.Count * deployers.Count;
+                if(overallAmount == 0)
+                {
+                    overallAmount++;
+                }
+                int progressAmount = 0;
                 foreach (var app in applicationsToDeploy)
                 {
                     foreach (var deployer in deployers)
@@ -260,20 +314,6 @@ namespace Webserver.Api.Gui
                             try
                             {
                                 Console.WriteLine($"Start deploy app {app.Name} to {deployer.plc}");
-                                System.Windows.Application.Current.Dispatcher.Invoke(new Action(() =>
-                                {
-                                    var progressBar = new ProgressBarWithTextControl();
-                                    progressBar.Name = app.Name;
-                                    var progress = new Progress<int>(value => progressBar.ProgressBarValue = value);
-                                    Duration duration = new Duration(TimeSpan.FromSeconds(10));
-                                    DoubleAnimation doubleanimation = new DoubleAnimation(100.0, duration);
-                                    progressBar.BeginAnimation(ProgressBarWithTextControl.ProgressBarValueProperty, doubleanimation);
-                                }));
-                                
-                                //progressBar.Show();
-                                //progressBar.BeginAnimation()
-                                
-                                
                                 await deployer.deployer.DeployOrUpdateAsync(app);
                                 Console.WriteLine($"Successfully deployed app {app.Name} to {deployer.plc} in {DateTime.Now - started}");
                             }
@@ -287,12 +327,23 @@ namespace Webserver.Api.Gui
                                     currentException = currentException.InnerException;
                                 }
                             }
+                            progressAmount++;
                         });
                         tasks.Add(myTask);
                     }
                     if (!Task.WaitAll(tasks.ToArray(), TimeSpan.FromMinutes(10)))
                     {
                         message += $"could not successfully deploy all apps!";
+                    }
+                    try
+                    {
+                        var nextValue = progressAmount * 100 / overallAmount;
+                        Console.WriteLine($"Set progress bar value to {nextValue}!");
+                        ProgressBarValue = new ProgressBarValue(nextValue);
+                    }
+                    catch (Exception ex2)
+                    {
+                        Console.WriteLine($"{ex2.GetType()}: {ex2.Message}");
                     }
                 }
                 if (string.IsNullOrEmpty(message) && applicationsToDeploy.Count > 0 && deployers.Count > 0)
@@ -327,6 +378,7 @@ namespace Webserver.Api.Gui
             }
             this.Cursor = System.Windows.Input.Cursors.Arrow;
             System.Windows.MessageBox.Show(message.Trim());
+            ProgressBarValue = new ProgressBarValue(100);
         }
 
 
@@ -593,11 +645,11 @@ namespace Webserver.Api.Gui
                             if (dialog.ShowDialog() == true)
                             {
                                 password = dialog.PasswordNameTextBox.Password;
-                                username = dialog.UserNameTextBox.Text == "" ? "Everybody" : dialog.UserNameTextBox.Text;
+                                username = dialog.UserNameTextBox.Text == "" ? "Anonymous" : dialog.UserNameTextBox.Text;
                             }
                             else
                             {
-                                username = "Everybody";
+                                username = "Anonymous";
                                 password = "";
                             }
 
@@ -651,26 +703,26 @@ namespace Webserver.Api.Gui
             {
                 foreach (var handler in handlers)
                 {
-                    try
+                    tasks.Add(Task.Run(async () =>
                     {
-                        var stopwatch = new Stopwatch();
-                        watches.Add(stopwatch);
-                        stopwatch.Start();
-                        tasks.Add(Task.Run(async () =>
+                        try
                         {
+                            var stopwatch = new Stopwatch();
+                            watches.Add(stopwatch);
+                            stopwatch.Start();
                             await handler.WebAppDeleteAsync(app);
-                        }));
-                        stopwatch.Stop();
-                        Console.WriteLine($"Successfully deleted app {app.Name} in {stopwatch.Elapsed}");
-                    }
-                    catch (Exception ex)
-                    {
-                        message += $"Delete App failed for {app.Name} with {Environment.NewLine}{ex.GetType()}:{ex.Message}";
-                    }
+                            stopwatch.Stop();
+                            Console.WriteLine($"Successfully deleted app {app.Name} in {stopwatch.Elapsed}");
+                        }
+                        catch (Exception ex)
+                        {
+                            message += $"Delete App failed for {app.Name} with {Environment.NewLine}{ex.GetType()}:{ex.Message}";
+                        }
+                    }));
                 }
                 if (!Task.WaitAll(tasks.ToArray(), TimeSpan.FromMinutes(10)))
                 {
-                    message += "could not successfully deploy all apps!";
+                    message += "could not successfully delete all apps!";
                 }
             }
 

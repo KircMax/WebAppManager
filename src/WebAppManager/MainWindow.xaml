@@ -67,7 +67,11 @@
             <GroupBox Grid.Column="3" Grid.Row="6">
                 <Button Name="StartDeleteBtn" Click="StartDeleteBtn_Click">Delete WebApps</Button>
             </GroupBox>
-            <customcontrols:ProgressBarWithTextControl Grid.ColumnSpan="2" Grid.Row="7" x:Name="MyProgressBar"></customcontrols:ProgressBarWithTextControl>
+            <customcontrols:ProgressBarWithTextControl 
+                IsEnabled="true"
+                Grid.ColumnSpan="2" Grid.Row="7" x:Name="MyProgressBar" 
+                ProgressBarValue="{Binding ElementName=this,Path=ProgressBarValue,Mode=TwoWay,UpdateSourceTrigger=PropertyChanged}"
+                                                       ></customcontrols:ProgressBarWithTextControl>
         </Grid>
     </DockPanel>
 </Window>
