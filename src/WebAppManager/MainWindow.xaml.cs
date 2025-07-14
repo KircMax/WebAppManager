@@ -16,12 +16,15 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Forms;
+using System.Windows.Media.Animation;
 using Webserver.Api.Gui.Pages;
 using Webserver.Api.Gui.Settings;
 using Webserver.Api.Gui.WebAppManagerEvents.WebAppMangagerEventArgs;
+using static System.Windows.Forms.VisualStyles.VisualStyleElement.Window;
 
 namespace Webserver.Api.Gui
 {
@@ -127,6 +130,10 @@ namespace Webserver.Api.Gui
             SaveSettingsFilePath = path;
         }
 
+        public bool RunWithLoginDialog = false;
+        public bool RunWithCertificateCallbackDialog = false;
+
+        [System.STAThread]
         private async void StartDeploymentBtnAndCreateJsonConfigFile_Click(object sender, RoutedEventArgs e)
         {
             var serviceFactory = new ApiStandardServiceFactory();
@@ -172,14 +179,14 @@ namespace Webserver.Api.Gui
                             string password = "";
                             string username = "";
                             dialog.PlcIpOrDnsNameInput.Text += plc;
-                            if (dialog.ShowDialog() == true)
+                            if (dialog.ShowDialog() == true && RunWithLoginDialog)
                             {
                                 password = dialog.PasswordNameTextBox.Password;
-                                username = dialog.UserNameTextBox.Text == "" ? "Everybody" : dialog.UserNameTextBox.Text;
+                                username = dialog.UserNameTextBox.Text == "" ? "Anonymous" : dialog.UserNameTextBox.Text;
                             }
                             else
                             {
-                                username = "Everybody";
+                                username = "Anonymous";
                                 password = "";
                             }
                             ApiHttpClientRequestHandler requestHandler = null;
@@ -196,7 +203,11 @@ namespace Webserver.Api.Gui
                                         || ex.Message == "Die zugrunde liegende Verbindung wurde geschlossen: Für den geschützten SSL/TLS-Kanal konnte keine Vertrauensstellung hergestellt werden.."
                                         || assumeItsExpectedWebException)
                                     {
-                                        var result = System.Windows.MessageBox.Show("The plc certificate was not considered trusted! Do you want to connect anyways?", "ERR_CERT_AUTHORITY_INVALID", MessageBoxButton.YesNo);
+                                        MessageBoxResult result = MessageBoxResult.Yes;
+                                        if(RunWithCertificateCallbackDialog)
+                                        {
+                                            result = System.Windows.MessageBox.Show("The plc certificate was not considered trusted! Do you want to connect anyways?", "ERR_CERT_AUTHORITY_INVALID", MessageBoxButton.YesNo);
+                                        }
                                         switch (result)
                                         {
                                             case MessageBoxResult.Yes:
@@ -249,14 +260,20 @@ namespace Webserver.Api.Gui
                             try
                             {
                                 Console.WriteLine($"Start deploy app {app.Name} to {deployer.plc}");
-                                var progressBar = new ProgressBarWithTextControl();
-                                progressBar.Name = app.Name;
-                                var progress = new Progress<int>(value => progressBar.ProgressBarValue = value);
+                                System.Windows.Application.Current.Dispatcher.Invoke(new Action(() =>
+                                {
+                                    var progressBar = new ProgressBarWithTextControl();
+                                    progressBar.Name = app.Name;
+                                    var progress = new Progress<int>(value => progressBar.ProgressBarValue = value);
+                                    Duration duration = new Duration(TimeSpan.FromSeconds(10));
+                                    DoubleAnimation doubleanimation = new DoubleAnimation(100.0, duration);
+                                    progressBar.BeginAnimation(ProgressBarWithTextControl.ProgressBarValueProperty, doubleanimation);
+                                }));
+                                
                                 //progressBar.Show();
                                 //progressBar.BeginAnimation()
-                                Duration duration = new Duration(TimeSpan.FromSeconds(10));
-                                DoubleAnimation doubleanimation = new DoubleAnimation(100.0, duration);
-                                progressBar.BeginAnimation(ProgressBarWithTextControl.ProgressBarValueProperty, doubleanimation);
+                                
+                                
                                 await deployer.deployer.DeployOrUpdateAsync(app);
                                 Console.WriteLine($"Successfully deployed app {app.Name} to {deployer.plc} in {DateTime.Now - started}");
                             }
