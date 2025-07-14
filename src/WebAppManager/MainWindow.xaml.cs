@@ -254,6 +254,12 @@ namespace Webserver.Api.Gui
                             catch (Exception ex)
                             {
                                 message += $"DeployOrUpdate failed for {app.Name} to {deployer.plc} with {Environment.NewLine}{ex.GetType()}:{ex.Message}{Environment.NewLine}";
+                                var currentException = ex.InnerException;
+                                while(currentException != null)
+                                {
+                                    message += $"Inner: {currentException.GetType()}:{currentException.Message}";
+                                    currentException = currentException.InnerException;
+                                }
                             }
                         });
                         tasks.Add(myTask);
