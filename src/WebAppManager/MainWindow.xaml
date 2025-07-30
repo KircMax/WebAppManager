@@ -12,8 +12,8 @@
         xmlns:local="clr-namespace:Webserver.Api.Gui"
         xmlns:CustomControls="clr-namespace:Webserver.Api.Gui.CustomControls" xmlns:customcontrols="clr-namespace:Siemens.Simatic.S7.Webserver.API.WebApplicationManager.CustomControls"
         mc:Ignorable="d"
-        Height="730" Width="800"
-        MinHeight="730" MinWidth="800">
+        Height="680" Width="800"
+        MinHeight="680" MinWidth="800">
     <DockPanel>
         <Menu DockPanel.Dock="Top" FontSize="12" x:Name="MenuElement">
             <MenuItem Header="_File">
@@ -67,6 +67,7 @@
             <GroupBox Grid.Column="3" Grid.Row="6">
                 <Button Name="StartDeleteBtn" Click="StartDeleteBtn_Click">Delete WebApps</Button>
             </GroupBox>
+
             <customcontrols:ProgressBarWithTextControl 
                 IsEnabled="true"
                 Grid.ColumnSpan="2" Grid.Row="7" x:Name="MyProgressBar" 

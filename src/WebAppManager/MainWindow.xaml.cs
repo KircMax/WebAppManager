@@ -65,6 +65,7 @@ namespace Webserver.Api.Gui
                 typeof(ProgressBarValue),
                 typeof(MainWindow));
 
+        
         public ProgressBarValue ProgressBarValue
         {
             get
@@ -83,6 +84,8 @@ namespace Webserver.Api.Gui
                 }
             }
         }
+        
+
 
         /// <summary>
         /// Current Executing Directory
@@ -160,8 +163,8 @@ namespace Webserver.Api.Gui
             SaveSettingsFilePath = path;
         }
 
-        public bool RunWithLoginDialog = false;
-        public bool RunWithCertificateCallbackDialog = false;
+        public bool RunWithLoginDialog = true;
+        public bool RunWithCertificateCallbackDialog = true;
 
         public List<X509Certificate> TemporarilyTrustedCertificates = new List<X509Certificate>();
 
@@ -340,6 +343,26 @@ namespace Webserver.Api.Gui
                         var nextValue = progressAmount * 100 / overallAmount;
                         Console.WriteLine($"Set progress bar value to {nextValue}!");
                         ProgressBarValue = new ProgressBarValue(nextValue);
+                        MyProgressBar.pbStatus.Value = nextValue;
+                        //var window = new Window();
+                        //window.Show();
+                        //window.Close();
+                        //var messageBox = new System.Windows.Forms.MessageBox();
+                        //var result = System.Windows.MessageBox.Show($"{nextValue}");
+                        /*
+                         * var mBox = new System.Windows.MessageBox
+                        {
+                            Owner = this,
+                            Content = message,
+                            Title = "Message Box Title",
+                            Button = MessageBoxButton.OKCancel
+                        };*/
+                        /*using(var box = new AutoCloseMessageBox())
+                        {
+                            box.Show();
+                        }*/
+                        
+                        
                     }
                     catch (Exception ex2)
                     {
