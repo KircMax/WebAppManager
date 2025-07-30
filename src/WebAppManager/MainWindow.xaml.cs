@@ -29,6 +29,7 @@ using System.Windows.Media.Animation;
 using Webserver.Api.Gui.Pages;
 using Webserver.Api.Gui.Settings;
 using Webserver.Api.Gui.WebAppManagerEvents.WebAppMangagerEventArgs;
+using static System.Windows.Forms.VisualStyles.VisualStyleElement.StartPanel;
 using static System.Windows.Forms.VisualStyles.VisualStyleElement.Window;
 
 namespace Webserver.Api.Gui
@@ -108,6 +109,7 @@ namespace Webserver.Api.Gui
 
             InitControlSettings();
             DataContext = this;
+            ServiceFactory = new ApiStandardServiceFactory();
         }
 
         private void InitControlSettings()
@@ -166,12 +168,110 @@ namespace Webserver.Api.Gui
         public bool RunWithLoginDialog = true;
         public bool RunWithCertificateCallbackDialog = true;
 
-        public List<X509Certificate> TemporarilyTrustedCertificates = new List<X509Certificate>();
+        public HashSet<X509Certificate> TemporarilyTrustedCertificates = new HashSet<X509Certificate>();
+        public Dictionary<string, NetworkCredential> CachedCredentials = new Dictionary<string, NetworkCredential>();
+
+        public IApiServiceFactory ServiceFactory;
+
+        private NetworkCredential GetCredentials(string plc)
+        {
+            string password = "";
+            string username = "";
+            if (CachedCredentials.ContainsKey(plc))
+            {
+                username = CachedCredentials[plc].UserName;
+                password = CachedCredentials[plc].Password;
+            }
+            else
+            {
+                var dialog = new LoginDialog();
+                dialog.PlcIpOrDnsNameInput.Text += plc;
+                if (RunWithLoginDialog)
+                {
+                    if (dialog.ShowDialog() == true)
+                    {
+                        password = dialog.PasswordNameTextBox.Password;
+                        username = dialog.UserNameTextBox.Text == "" ? "Anonymous" : dialog.UserNameTextBox.Text;
+                        bool cache = dialog.CacheCredentialsCheckBox.IsChecked == true;
+                        if (cache)
+                        {
+                            CachedCredentials.Add(plc, new NetworkCredential(username, password));
+                        }
+                    }
+                    else
+                    {
+                        username = "Anonymous";
+                        password = "";
+                    }
+                }
+                else
+                {
+                    username = "Anonymous";
+                    password = "";
+                }
+            }
+            return new NetworkCredential(username, password);
+        }
+
+        private async Task<ApiHttpClientRequestHandler> GetRequestHandlerAsync(string plc, NetworkCredential credentials)
+        {
+            ApiHttpClientRequestHandler requestHandler = null;
+            try
+            {
+                requestHandler = (ApiHttpClientRequestHandler)await ServiceFactory.GetApiHttpClientRequestHandlerAsync(plc, credentials.UserName, credentials.Password);
+            }
+            catch (HttpRequestException ex)
+            {
+                if (ex.InnerException is WebException)
+                {
+                    var assumeItsExpectedWebException = true; // created this bool since the exception message is languagedependant
+                    if (ex.InnerException.Message == "The underlying connection was closed: Could not establish trust relationship for the SSL/TLS secure channel."
+                        || ex.Message == "Die zugrunde liegende Verbindung wurde geschlossen: Für den geschützten SSL/TLS-Kanal konnte keine Vertrauensstellung hergestellt werden.."
+                        || assumeItsExpectedWebException)
+                    {
+                        MessageBoxResult result = MessageBoxResult.Yes;
+                        if (RunWithCertificateCallbackDialog)
+                        {
+                            result = System.Windows.MessageBox.Show($"The plc {plc} certificate was not considered trusted! Do you want to connect anyways?", "ERR_CERT_AUTHORITY_INVALID", MessageBoxButton.YesNo);
+                        }
+                        switch (result)
+                        {
+                            case MessageBoxResult.Yes:
+                                PlcsToTrust.Add(plc);
+                                break;
+                        }
+                        requestHandler = (ApiHttpClientRequestHandler)await ServiceFactory.GetApiHttpClientRequestHandlerAsync(plc, credentials.UserName, credentials.Password);
+                    }
+                    else
+                    {
+                        throw ex;
+                    }
+                }
+                else
+                {
+                    throw ex;
+                }
+            }
+            return requestHandler;
+        }
+
+        private async Task CheckPermissionsAsync(string plc, ApiHttpClientRequestHandler requestHandler, NetworkCredential credentials)
+        {
+            var permissions = await requestHandler.ApiGetPermissionsAsync();
+            var permissionsString = string.Join(", ", permissions.Result.Select(el => el.ToString()));
+            Console.WriteLine($"Permissions for {plc} with user: {credentials.UserName} {permissionsString}");
+            var manageUserPagesRight = "manage_user_pages";
+            if (!permissions.Result.Any(el => el.Name == manageUserPagesRight))
+            {
+                // all good
+                System.Windows.MessageBox.Show($"User does not seem to have right to {manageUserPagesRight}, rights found: {Environment.NewLine}{permissionsString}");
+                CachedCredentials.Remove(plc);
+            }
+        }
 
         private async void StartDeploymentBtnAndCreateJsonConfigFile_Click(object sender, RoutedEventArgs e)
         {
             ProgressBarValue = new ProgressBarValue(0);
-            var serviceFactory = new ApiStandardServiceFactory();
             this.Cursor = System.Windows.Input.Cursors.Wait;
             SaveSettingsToJsonFile(SaveSettingsFilePath);
             List<ApiWebAppData> applicationsToDeploy = new List<ApiWebAppData>();
@@ -186,26 +286,9 @@ namespace Webserver.Api.Gui
             var deployers = new List<(string plc, ApiWebAppDeployer deployer, ApiHttpClientRequestHandler requestHandler)>();
             List<string> plcsToDeployTo = new List<string>();
             List<Task> tasks = new List<Task>();
-            List<string> plcsToTrust = new List<string>();
+            PlcsToTrust = new List<string>();
             var message = "";
-            ServicePointManager.ServerCertificateValidationCallback += (mysender, certificate, chain, sslPolicyErrors) =>
-            {
-                if(!RunWithCertificateCallbackDialog)
-                {
-                    return true;
-                }
-                if (mysender is System.Net.HttpWebRequest)
-                {
-                    var mySenderRequest = mysender as HttpWebRequest;
-                    var host = mySenderRequest.Address.Host;
-                    if (plcsToTrust.Contains(host))
-                    {
-                        TemporarilyTrustedCertificates.Add(certificate);
-                    }
-                    return (TemporarilyTrustedCertificates.Contains(certificate));
-                }
-                return false;
-            };
+            ServicePointManager.ServerCertificateValidationCallback += Certificate_Validation_Callback;
             foreach (var entry in this.ApplicationSettings.RackSelectionSettings.SelectedItems)
             {
                 var pathToRackConfiguration = this.ApplicationSettings.RackSelectionSettings.AvailableItems.First(el => el.Value == entry).Key;
@@ -218,75 +301,11 @@ namespace Webserver.Api.Gui
                         if (!plcsToDeployTo.Any(el => el == plc))
                         {
                             plcsToDeployTo.Add(plc);
-                            var dialog = new LoginDialog();
-                            string password = "";
-                            string username = "";
-                            dialog.PlcIpOrDnsNameInput.Text += plc;
-                            if(RunWithLoginDialog)
-                            {
-                                if (dialog.ShowDialog() == true)
-                                {
-                                    password = dialog.PasswordNameTextBox.Password;
-                                    username = dialog.UserNameTextBox.Text == "" ? "Anonymous" : dialog.UserNameTextBox.Text;
-                                }
-                                else
-                                {
-                                    username = "Anonymous";
-                                    password = "";
-                                }
-                            }
-                            else
-                            {
-                                username = "Anonymous";
-                                password = "";
-                            }
+                            var credentials = GetCredentials(plc);
                             ApiHttpClientRequestHandler requestHandler = null;
-                            try
-                            {
-                                requestHandler = (ApiHttpClientRequestHandler)await serviceFactory.GetApiHttpClientRequestHandlerAsync(plc, username, password);
-                            }
-                            catch (HttpRequestException ex)
-                            {
-                                if (ex.InnerException is WebException)
-                                {
-                                    var assumeItsExpectedWebException = true; // created this bool since the exception message is languagedependant
-                                    if (ex.InnerException.Message == "The underlying connection was closed: Could not establish trust relationship for the SSL/TLS secure channel."
-                                        || ex.Message == "Die zugrunde liegende Verbindung wurde geschlossen: Für den geschützten SSL/TLS-Kanal konnte keine Vertrauensstellung hergestellt werden.."
-                                        || assumeItsExpectedWebException)
-                                    {
-                                        MessageBoxResult result = MessageBoxResult.Yes;
-                                        if(RunWithCertificateCallbackDialog)
-                                        {
-                                            result = System.Windows.MessageBox.Show($"The plc {plc} certificate was not considered trusted! Do you want to connect anyways?", "ERR_CERT_AUTHORITY_INVALID", MessageBoxButton.YesNo);
-                                        }
-                                        switch (result)
-                                        {
-                                            case MessageBoxResult.Yes:
-                                                plcsToTrust.Add(plc);
-                                                break;
-                                        }
-                                        requestHandler = (ApiHttpClientRequestHandler)await serviceFactory.GetApiHttpClientRequestHandlerAsync(plc, username, password);
-                                    }
-                                    else
-                                    {
-                                        throw ex;
-                                    }
-                                }
-                                else
-                                {
-                                    throw ex;
-                                }
-                            }
-                            var permissions = await requestHandler.ApiGetPermissionsAsync();
-                            var permissionsString = string.Join(", ", permissions.Result.Select(el => el.ToString()));
-                            Console.WriteLine($"Permissions for {plc} with user: {username} {permissionsString}");
-                            var manageUserPagesRight = "manage_user_pages";
-                            if(!permissions.Result.Any(el => el.Name == manageUserPagesRight))
-                            {
-                                // all good
-                                System.Windows.MessageBox.Show($"User does not seem to have right to {manageUserPagesRight}, rights found: {Environment.NewLine}{permissionsString}");
-                            }
-                            var deployer = (ApiWebAppDeployer)serviceFactory.GetApiWebAppDeployer(requestHandler);
+                            requestHandler = await GetRequestHandlerAsync(plc, credentials);
+                            await CheckPermissionsAsync(plc, requestHandler, credentials);
+                            var deployer = (ApiWebAppDeployer)ServiceFactory.GetApiWebAppDeployer(requestHandler);
                             deployers.Add((plc, deployer, requestHandler));
                         }
                     }
@@ -620,6 +639,28 @@ namespace Webserver.Api.Gui
             Process.Start(fileName);
         }
 
+        private List<string> PlcsToTrust = new List<string>();
+
+        bool Certificate_Validation_Callback(object mysender, X509Certificate certificate, X509Chain chain, System.Net.Security.SslPolicyErrors sslPolicyErrors)
+        {
+            if (!RunWithCertificateCallbackDialog)
+            {
+                return true;
+            }
+            if (mysender is System.Net.HttpWebRequest)
+            {
+                var mySenderRequest = mysender as HttpWebRequest;
+                var host = mySenderRequest.Address.Host;
+                if (PlcsToTrust.Contains(host))
+                {
+                    TemporarilyTrustedCertificates.Add(certificate);
+                }
+                bool certIsTemporarilyTrusted = TemporarilyTrustedCertificates.Contains(certificate);
+                return certIsTemporarilyTrusted;
+            }
+            return false;
+        }
+
         private async void StartDeleteBtn_Click(object sender, RoutedEventArgs e)
         {
             SaveSettingsToJsonFile(SaveSettingsFilePath);
@@ -637,18 +678,9 @@ namespace Webserver.Api.Gui
             var watches = new List<Stopwatch>();
             List<string> plcsToDeleteWebAppsFrom = new List<string>();
             List<Task> tasks = new List<Task>();
-            List<string> plcsToTrust = new List<string>();
             var message = "";
-            ServicePointManager.ServerCertificateValidationCallback += (mysender, certificate, chain, sslPolicyErrors) =>
-            {
-                if (mysender is System.Net.HttpWebRequest)
-                {
-                    var mySenderRequest = mysender as HttpWebRequest;
-                    var host = mySenderRequest.Address.Host;
-                    return (plcsToTrust.Contains(host));
-                }
-                return false;
-            };
+            PlcsToTrust = new List<string>();
+            ServicePointManager.ServerCertificateValidationCallback += Certificate_Validation_Callback;
             foreach (var entry in this.ApplicationSettings.RackSelectionSettings.SelectedItems)
             {
                 var pathToRackConfiguration = this.ApplicationSettings.RackSelectionSettings.AvailableItems.First(el => el.Value == entry).Key;
@@ -661,54 +693,10 @@ namespace Webserver.Api.Gui
                         if (!plcsToDeleteWebAppsFrom.Any(el => el == plc))
                         {
                             plcsToDeleteWebAppsFrom.Add(plc);
-                            var dialog = new LoginDialog();
-                            string password = "";
-                            string username = "";
-                            dialog.PlcIpOrDnsNameInput.Text += plc;
-                            if (dialog.ShowDialog() == true)
-                            {
-                                password = dialog.PasswordNameTextBox.Password;
-                                username = dialog.UserNameTextBox.Text == "" ? "Anonymous" : dialog.UserNameTextBox.Text;
-                            }
-                            else
-                            {
-                                username = "Anonymous";
-                                password = "";
-                            }
-
+                            var credentials = GetCredentials(plc);
                             ApiHttpClientRequestHandler requestHandler = null;
-                            try
-                            {
-                                requestHandler = (ApiHttpClientRequestHandler)await serviceFactory.GetApiHttpClientRequestHandlerAsync(plc, username, password);
-                            }
-                            catch (HttpRequestException ex)
-                            {
-                                if (ex.InnerException is WebException)
-                                {
-                                    var assumeItsExpectedWebException = true; // created this bool since the exception message is languagedependant
-                                    if (ex.InnerException.Message == "The underlying connection was closed: Could not establish trust relationship for the SSL/TLS secure channel."
-                                        || ex.Message == "Die zugrunde liegende Verbindung wurde geschlossen: Für den geschützten SSL/TLS-Kanal konnte keine Vertrauensstellung hergestellt werden.."
-                                        || assumeItsExpectedWebException)
-                                    {
-                                        var result = System.Windows.MessageBox.Show("The plc certificate was not considered trusted! Do you want to connect anyways?", "ERR_CERT_AUTHORITY_INVALID", MessageBoxButton.YesNo);
-                                        switch (result)
-                                        {
-                                            case MessageBoxResult.Yes:
-                                                plcsToTrust.Add(plc);
-                                                break;
-                                        }
-                                        requestHandler = (ApiHttpClientRequestHandler)await serviceFactory.GetApiHttpClientRequestHandlerAsync(plc, username, password);
-                                    }
-                                    else
-                                    {
-                                        throw ex;
-                                    }
-                                }
-                                else
-                                {
-                                    throw ex;
-                                }
-                            }
+                            requestHandler = await GetRequestHandlerAsync(plc, credentials);
+                            await CheckPermissionsAsync(plc, requestHandler, credentials);
                             handlers.Add(requestHandler);
                         }
                     }
