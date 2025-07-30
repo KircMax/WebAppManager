@@ -1,4 +1,14 @@
-﻿<Window x:Class="Siemens.Simatic.S7.Webserver.API.WebApplicationManager.CustomControls.LogViewer"
+﻿<!--
+    // Copyright (c) 2022, Siemens AG
+    //
+    // SPDX-License-Identifier: MIT
+-->
+<!--
+    Portions of this file are inspired by or adapted from:
+    https://stackoverflow.com/questions/16743804/implementing-a-log-viewer-with-wpf
+    Credit: Stack Overflow community
+-->
+    <Window x:Class="Siemens.Simatic.S7.Webserver.API.WebApplicationManager.CustomControls.LogViewer"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:local="clr-namespace:Siemens.Simatic.S7.Webserver.API.WebApplicationManager.CustomControls"

@@ -1,4 +1,7 @@
-﻿using Siemens.Simatic.S7.Webserver.API.WebApplicationManager.Settings;
+﻿// Copyright (c) 2022, Siemens AG
+//
+// SPDX-License-Identifier: MIT
+using Siemens.Simatic.S7.Webserver.API.WebApplicationManager.Settings;
 using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;

@@ -1,4 +1,10 @@
-﻿using Microsoft.Extensions.Logging.Abstractions;
+﻿// Copyright (c) 2022, Siemens AG
+//
+// SPDX-License-Identifier: MIT
+// Portions of this file are inspired by or adapted from:
+// https://stackoverflow.com/questions/16743804/implementing-a-log-viewer-with-wpf
+// Credit: Stack Overflow community
+using Microsoft.Extensions.Logging.Abstractions;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
