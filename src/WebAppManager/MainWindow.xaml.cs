@@ -664,7 +664,6 @@ namespace Webserver.Api.Gui
         private async void StartDeleteBtn_Click(object sender, RoutedEventArgs e)
         {
             SaveSettingsToJsonFile(SaveSettingsFilePath);
-            var serviceFactory = new ApiStandardServiceFactory();
             List<ApiWebAppData> applicationsToDelete = new List<ApiWebAppData>();
             foreach (var entry in this.ApplicationSettings.WebAppDeploySelectionSettings.SelectedItems)
             {
