@@ -727,6 +727,12 @@ namespace Webserver.Api.Gui
                         catch (Exception ex)
                         {
                             message += $"Delete App failed for {app.Name} with {Environment.NewLine}{ex.GetType()}:{ex.Message}";
+                            var currentException = ex.InnerException;
+                            while (currentException != null)
+                            {
+                                message += $"Inner: {currentException.GetType()}:{currentException.Message}";
+                                currentException = currentException.InnerException;
+                            }
                         }
                     }));
                 }
