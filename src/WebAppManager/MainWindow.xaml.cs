@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2022, Siemens AG
+﻿// Copyright (c) 2025, Siemens AG
 //
 // SPDX-License-Identifier: MIT
 using Newtonsoft.Json;
@@ -8,19 +8,31 @@ using Siemens.Simatic.S7.Webserver.API.Services;
 using Siemens.Simatic.S7.Webserver.API.Services.FileParser;
 using Siemens.Simatic.S7.Webserver.API.Services.RequestHandling;
 using Siemens.Simatic.S7.Webserver.API.Services.WebApp;
+using Siemens.Simatic.S7.Webserver.API.WebApplicationManager.CustomControls;
+using Siemens.Simatic.S7.Webserver.API.WebApplicationManager.Settings;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
+using System.Runtime.ConstrainedExecution;
+using System.Security.Cryptography.X509Certificates;
+using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Forms;
+using System.Windows.Input;
+using System.Windows.Media.Animation;
+using System.Windows.Threading;
 using Webserver.Api.Gui.Pages;
 using Webserver.Api.Gui.Settings;
 using Webserver.Api.Gui.WebAppManagerEvents.WebAppMangagerEventArgs;
+using static System.Windows.Forms.VisualStyles.VisualStyleElement.StartPanel;
+using static System.Windows.Forms.VisualStyles.VisualStyleElement.Window;
 
 namespace Webserver.Api.Gui
 {
@@ -50,6 +62,34 @@ namespace Webserver.Api.Gui
             }
         }
 
+
+        public static readonly DependencyProperty ProgressBarValueProperty =
+            DependencyProperty.Register("ProgressBarValue",
+                typeof(ProgressBarValue),
+                typeof(MainWindow));
+
+        
+        public ProgressBarValue ProgressBarValue
+        {
+            get
+            {
+                //return (int)MyProgressBar.ProgressBarValue;
+                //return (ProgressBarValue)GetValue(ProgressBarValueProperty);
+                return MyProgressBar?.ProgressBarValue;
+            }
+            set
+            {
+                //MyProgressBar.ProgressBarValue = value;
+                //SetValue(ProgressBarValueProperty, value);
+                if(MyProgressBar != null)
+                {
+                    MyProgressBar.ProgressBarValue = value;   
+                }
+            }
+        }
+        
+
+
         /// <summary>
         /// Current Executing Directory
         /// </summary>
@@ -62,6 +102,8 @@ namespace Webserver.Api.Gui
             }
         }
 
+        public LogViewer LogViewer { get; set; }
+
         public MainWindow()
         {
             this.Title = $"WebApplicationManager @ {System.Reflection.Assembly.GetExecutingAssembly().GetName().Version}";
@@ -69,16 +111,19 @@ namespace Webserver.Api.Gui
 
             InitializeComponent();
 
-            DataContext = this;
-
             InitControlSettings();
 
+            DataContext = this;
+            LogViewer = new LogViewer();
+            LogViewer.Show();
+            ServiceFactory = new ApiStandardServiceFactory();
         }
 
         private void InitControlSettings()
         {
             WebAppDeploySelectionSettingsControl.Settings = this.ApplicationSettings.WebAppDeploySelectionSettings;
             PlcRackSelectionSettingsControl.Settings = this.ApplicationSettings.RackSelectionSettings;
+            MyProgressBar.ProgressBarValue = this.ProgressBarValue;
             this.PlcRackSelectionSettingsControl.SelectionSettingsAvailableItemsChanged += AvailableItemsPlcRackChanged;
             this.WebAppDeploySelectionSettingsControl.SelectionSettingsAvailableItemsChanged += AvailableItemsWebAppDeployChanged;
         }
@@ -123,12 +168,117 @@ namespace Webserver.Api.Gui
                     sw.Write(settingsString);
                 }
             }
+            ProgressBarValue = new ProgressBarValue(1);
             SaveSettingsFilePath = path;
         }
 
-        private async void StartDeploymentBtnAndCreateJsonConfigFile_Click(object sender, RoutedEventArgs e)
+        public bool RunWithLoginDialog = true;
+        public bool RunWithCertificateCallbackDialog = true;
+
+        public HashSet<X509Certificate2> TemporarilyTrustedCertificates = new HashSet<X509Certificate2>();
+        public Dictionary<string, NetworkCredential> CachedCredentials = new Dictionary<string, NetworkCredential>();
+
+        public IApiServiceFactory ServiceFactory;
+
+        private NetworkCredential GetCredentials(string plc)
         {
-            var serviceFactory = new ApiStandardServiceFactory();
+            string password = "";
+            string username = "";
+            if (CachedCredentials.ContainsKey(plc))
+            {
+                username = CachedCredentials[plc].UserName;
+                password = CachedCredentials[plc].Password;
+            }
+            else
+            {
+                var dialog = new LoginDialog();
+                dialog.PlcIpOrDnsNameInput.Text += plc;
+                if (RunWithLoginDialog)
+                {
+                    if (dialog.ShowDialog() == true)
+                    {
+                        password = dialog.PasswordNameTextBox.Password;
+                        username = dialog.UserNameTextBox.Text == "" ? "Anonymous" : dialog.UserNameTextBox.Text;
+                        bool cache = dialog.CacheCredentialsCheckBox.IsChecked == true;
+                        if (cache)
+                        {
+                            CachedCredentials.Add(plc, new NetworkCredential(username, password));
+                        }
+                    }
+                    else
+                    {
+                        username = "Anonymous";
+                        password = "";
+                    }
+                }
+                else
+                {
+                    username = "Anonymous";
+                    password = "";
+                }
+            }
+            return new NetworkCredential(username, password);
+        }
+
+        private async Task<ApiHttpClientRequestHandler> GetRequestHandlerAsync(string plc, NetworkCredential credentials)
+        {
+            ApiHttpClientRequestHandler requestHandler = null;
+            try
+            {
+                requestHandler = (ApiHttpClientRequestHandler)await ServiceFactory.GetApiHttpClientRequestHandlerAsync(plc, credentials.UserName, credentials.Password);
+            }
+            catch (HttpRequestException ex)
+            {
+                if (ex.InnerException is WebException)
+                {
+                    var assumeItsExpectedWebException = true; // created this bool since the exception message is languagedependant
+                    if (ex.InnerException.Message == "The underlying connection was closed: Could not establish trust relationship for the SSL/TLS secure channel."
+                        || ex.Message == "Die zugrunde liegende Verbindung wurde geschlossen: Für den geschützten SSL/TLS-Kanal konnte keine Vertrauensstellung hergestellt werden.."
+                        || assumeItsExpectedWebException)
+                    {
+                        MessageBoxResult result = MessageBoxResult.Yes;
+                        if (RunWithCertificateCallbackDialog)
+                        {
+                            result = System.Windows.MessageBox.Show($"The plc {plc} certificate was not considered trusted! Do you want to connect anyways?", "ERR_CERT_AUTHORITY_INVALID", MessageBoxButton.YesNo);
+                        }
+                        switch (result)
+                        {
+                            case MessageBoxResult.Yes:
+                                PlcsToTrust.Add(plc);
+                                break;
+                        }
+                        requestHandler = (ApiHttpClientRequestHandler)await ServiceFactory.GetApiHttpClientRequestHandlerAsync(plc, credentials.UserName, credentials.Password);
+                    }
+                    else
+                    {
+                        throw ex;
+                    }
+                }
+                else
+                {
+                    throw ex;
+                }
+            }
+            return requestHandler;
+        }
+
+        private async Task CheckPermissionsAsync(string plc, ApiHttpClientRequestHandler requestHandler, NetworkCredential credentials)
+        {
+            var permissions = await requestHandler.ApiGetPermissionsAsync();
+            var permissionsString = string.Join(", ", permissions.Result.Select(el => el.ToString()));
+            LogMessage($"Permissions for {plc} with user: {credentials.UserName} {permissionsString}");
+            var manageUserPagesRight = "manage_user_pages";
+            if (!permissions.Result.Any(el => el.Name == manageUserPagesRight))
+            {
+                // all good
+                System.Windows.MessageBox.Show($"User does not seem to have right to {manageUserPagesRight}, rights found: {Environment.NewLine}{permissionsString}");
+                CachedCredentials.Remove(plc);
+            }
+        }
+
+        private async Task<string> DeployOnceAsync(bool showMessageDeployed = true)
+        {
+            ProgressBarValue = new ProgressBarValue(0);
             this.Cursor = System.Windows.Input.Cursors.Wait;
             SaveSettingsToJsonFile(SaveSettingsFilePath);
             List<ApiWebAppData> applicationsToDeploy = new List<ApiWebAppData>();
@@ -143,18 +293,8 @@ namespace Webserver.Api.Gui
             var deployers = new List<(string plc, ApiWebAppDeployer deployer, ApiHttpClientRequestHandler requestHandler)>();
             List<string> plcsToDeployTo = new List<string>();
             List<Task> tasks = new List<Task>();
-            List<string> plcsToTrust = new List<string>();
-            var message = "";
-            ServicePointManager.ServerCertificateValidationCallback += (mysender, certificate, chain, sslPolicyErrors) =>
-            {
-                if (mysender is System.Net.HttpWebRequest)
-                {
-                    var mySenderRequest = mysender as HttpWebRequest;
-                    var host = mySenderRequest.Address.Host;
-                    return (plcsToTrust.Contains(host));
-                }
-                return false;
-            };
+            StringBuilder message = new StringBuilder();
+            ServicePointManager.ServerCertificateValidationCallback += Certificate_Validation_Callback;
             foreach (var entry in this.ApplicationSettings.RackSelectionSettings.SelectedItems)
             {
                 var pathToRackConfiguration = this.ApplicationSettings.RackSelectionSettings.AvailableItems.First(el => el.Value == entry).Key;
@@ -167,77 +307,32 @@ namespace Webserver.Api.Gui
                         if (!plcsToDeployTo.Any(el => el == plc))
                         {
                             plcsToDeployTo.Add(plc);
-                            var dialog = new LoginDialog();
-                            string password = "";
-                            string username = "";
-                            dialog.PlcIpOrDnsNameInput.Text += plc;
-                            if (dialog.ShowDialog() == true)
-                            {
-                                password = dialog.PasswordNameTextBox.Password;
-                                username = dialog.UserNameTextBox.Text == "" ? "Everybody" : dialog.UserNameTextBox.Text;
-                            }
-                            else
-                            {
-                                username = "Everybody";
-                                password = "";
-                            }
+                            var credentials = GetCredentials(plc);
                             ApiHttpClientRequestHandler requestHandler = null;
-                            try
-                            {
-                                requestHandler = (ApiHttpClientRequestHandler)await serviceFactory.GetApiHttpClientRequestHandlerAsync(plc, username, password);
-                            }
-                            catch (HttpRequestException ex)
-                            {
-                                if (ex.InnerException is WebException)
-                                {
-                                    var assumeItsExpectedWebException = true; // created this bool since the exception message is languagedependant
-                                    if (ex.InnerException.Message == "The underlying connection was closed: Could not establish trust relationship for the SSL/TLS secure channel."
-                                        || ex.Message == "Die zugrunde liegende Verbindung wurde geschlossen: Für den geschützten SSL/TLS-Kanal konnte keine Vertrauensstellung hergestellt werden.."
-                                        || assumeItsExpectedWebException)
-                                    {
-                                        var result = System.Windows.MessageBox.Show("The plc certificate was not considered trusted! Do you want to connect anyways?", "ERR_CERT_AUTHORITY_INVALID", MessageBoxButton.YesNo);
-                                        switch (result)
-                                        {
-                                            case MessageBoxResult.Yes:
-                                                plcsToTrust.Add(plc);
-                                                break;
-                                        }
-                                        requestHandler = (ApiHttpClientRequestHandler)await serviceFactory.GetApiHttpClientRequestHandlerAsync(plc, username, password);
-                                    }
-                                    else
-                                    {
-                                        throw ex;
-                                    }
-                                }
-                                else
-                                {
-                                    throw ex;
-                                }
-                            }
-                            var permissions = await requestHandler.ApiGetPermissionsAsync();
-                            var permissionsString = string.Join(", ", permissions.Result.Select(el => el.ToString()));
-                            Console.WriteLine($"Permissions for {plc} with user: {username} {permissionsString}");
-                            var manageUserPagesRight = "manage_user_pages";
-                            if(!permissions.Result.Any(el => el.Name == manageUserPagesRight))
-                            {
-                                // all good
-                                System.Windows.MessageBox.Show($"User does not seem to have right to {manageUserPagesRight}, rights found: {Environment.NewLine}{permissionsString}");
-                            }
-                            var deployer = (ApiWebAppDeployer)serviceFactory.GetApiWebAppDeployer(requestHandler);
+                            requestHandler = await GetRequestHandlerAsync(plc, credentials);
+                            await CheckPermissionsAsync(plc, requestHandler, credentials);
+                            var deployer = (ApiWebAppDeployer)ServiceFactory.GetApiWebAppDeployer(requestHandler);
                             deployers.Add((plc, deployer, requestHandler));
                         }
                     }
                     catch (Exception ex)
                     {
-                        message = ex.GetType() + ex.Message + " has occured!";
-                        System.Windows.MessageBox.Show(message);
+                        message.AppendLine(ex.GetType() + ex.Message + " has occured!");
+                        System.Windows.MessageBox.Show(message.ToString());
                     }
                 }
             }
             Stopwatch overallwatch = new Stopwatch();
             overallwatch.Start();
+            bool deploySuccess = false;
             try
             {
+                int overallAmount = applicationsToDeploy.Count * deployers.Count;
+                if (overallAmount == 0)
+                {
+                    overallAmount++;
+                }
+                int progressAmount = 0;
                 foreach (var app in applicationsToDeploy)
                 {
                     foreach (var deployer in deployers)
@@ -247,41 +342,73 @@ namespace Webserver.Api.Gui
                             var started = DateTime.Now;
                             try
                             {
-                                Console.WriteLine($"Start deploy app {app.Name} to {deployer.plc}");
+                                LogMessage($"Start deploy app {app.Name} to {deployer.plc}");
                                 await deployer.deployer.DeployOrUpdateAsync(app);
-                                Console.WriteLine($"Successfully deployed app {app.Name} to {deployer.plc} in {DateTime.Now - started}");
+                                LogMessage($"Successfully deployed app {app.Name} to {deployer.plc} in {DateTime.Now - started}");
                             }
                             catch (Exception ex)
                             {
-                                message += $"DeployOrUpdate failed for {app.Name} to {deployer.plc} with {Environment.NewLine}{ex.GetType()}:{ex.Message}{Environment.NewLine}";
+                                message.AppendLine($"DeployOrUpdate failed for {app.Name} to {deployer.plc} with {Environment.NewLine}{ex.GetType()}:{ex.Message}{Environment.NewLine}");
                                 var currentException = ex.InnerException;
-                                while(currentException != null)
+                                while (currentException != null)
                                 {
-                                    message += $"Inner: {currentException.GetType()}:{currentException.Message}";
+                                    message.AppendLine($"Inner: {currentException.GetType()}:{currentException.Message}");
                                     currentException = currentException.InnerException;
                                 }
                             }
+                            progressAmount++;
                         });
                         tasks.Add(myTask);
                     }
                     if (!Task.WaitAll(tasks.ToArray(), TimeSpan.FromMinutes(10)))
                     {
-                        message += $"could not successfully deploy all apps!";
+                        message.AppendLine($"could not successfully deploy all apps!");
+                    }
+                    try
+                    {
+                        var nextValue = progressAmount * 100 / overallAmount;
+                        //LogMessage($"Set progress bar value to {nextValue}!");
+                        ProgressBarValue = new ProgressBarValue(nextValue);
+                        MyProgressBar.pbStatus.Value = nextValue;
+                        //var window = new Window();
+                        //window.Show();
+                        //window.Close();
+                        //var messageBox = new System.Windows.Forms.MessageBox();
+                        //var result = System.Windows.MessageBox.Show($"{nextValue}");
+                        /*
+                         * var mBox = new System.Windows.MessageBox
+                        {
+                            Owner = this,
+                            Content = message,
+                            Title = "Message Box Title",
+                            Button = MessageBoxButton.OKCancel
+                        };*/
+                        /*using(var box = new AutoCloseMessageBox())
+                        {
+                            box.Show();
+                        }*/
+
+
+                    }
+                    catch (Exception ex2)
+                    {
+                        LogMessage($"{ex2.GetType()}: {ex2.Message}");
                     }
                 }
-                if (string.IsNullOrEmpty(message) && applicationsToDeploy.Count > 0 && deployers.Count > 0)
+                if (string.IsNullOrEmpty(message.ToString()) && applicationsToDeploy.Count > 0 && deployers.Count > 0)
                 {
-                    message = $"Successfully deployed all WebApplications in {overallwatch.Elapsed}";
+                    message.AppendLine($"Successfully deployed all WebApplications in {overallwatch.Elapsed}");
+                    deploySuccess = true;
                 }
                 else
                 {
                     if (applicationsToDeploy.Count == 0)
                     {
-                        message = $"No application to Deploy.";
+                        message.AppendLine($"No application to Deploy.");
                     }
                     if (deployers.Count == 0)
                     {
-                        message = $"{message} No PLC to deploy in.";
+                        message.AppendLine($"{message} No PLC to deploy in.");
                     }
                 }
             }
@@ -295,12 +422,27 @@ namespace Webserver.Api.Gui
                     }
                     catch (Exception ex)
                     {
-                        message += $"Logout request for {handler.plc} failed. and {Environment.NewLine}{ex.GetType()}:{ex.InnerException.Message} and {Environment.NewLine}{Environment.NewLine}{ex.GetType()}:{ex.InnerException.InnerException.Message}";
+                        message.AppendLine($"Logout request for {handler.plc} failed. and {Environment.NewLine}{ex.GetType()}:{ex.InnerException.Message} and {Environment.NewLine}{Environment.NewLine}{ex.GetType()}:{ex.InnerException.InnerException.Message}");
                     }
                 }
             }
             this.Cursor = System.Windows.Input.Cursors.Arrow;
-            System.Windows.MessageBox.Show(message.Trim());
+            // if not successfull deploy or show success deploy message -> show message
+            var messageString = message.ToString().Trim();
+            if (showMessageDeployed && deploySuccess || !deploySuccess)
+            {
+                //System.Windows.MessageBox.Show(messageString);
+                ;
+            }
+            LogMessage(messageString, true);
+            ProgressBarValue = new ProgressBarValue(100);
+            return messageString;
+        }
+
+        private async void StartDeploymentBtnAndCreateJsonConfigFile_Click(object sender, RoutedEventArgs e)
+        {
+            PlcsToTrust = new List<string>();
+            await DeployOnceAsync();
         }
 
 
@@ -519,10 +661,94 @@ namespace Webserver.Api.Gui
             Process.Start(fileName);
         }
 
+        private List<string> PlcsToTrust = new List<string>();
+
+        bool Certificate_Validation_Callback(object mysender, X509Certificate certificate, X509Chain chain, System.Net.Security.SslPolicyErrors sslPolicyErrors)
+        {
+            if (!RunWithCertificateCallbackDialog)
+            {
+                return true;
+            }
+            if (mysender is System.Net.HttpWebRequest)
+            {
+                var mySenderRequest = mysender as HttpWebRequest;
+                var host = mySenderRequest.Address.Host;
+                var cert = new X509Certificate2(certificate);
+                if (PlcsToTrust.Contains(host))
+                {
+                    TemporarilyTrustedCertificates.Add(cert);
+                }
+                bool certIsTemporarilyTrusted = TemporarilyTrustedCertificates.Contains(cert);
+                return certIsTemporarilyTrusted;
+            }
+            return false;
+        }
+
+        private DispatcherTimer _continuousDeploymentTimer;
+
+        private int currentIndex = 0;
+
+        private async void ContinuousDeploymentTimer_Tick(object sender, EventArgs e)
+        {
+            PlcsToTrust = new List<string>();
+            var result = await DeployOnceAsync(false);
+            LogMessage(result, true);
+        }
+
+        private static object LogLock = new object();
+
+        private List<string> messagesToBeLogged = new List<string>();
+
+        private void LogMessage(string message, bool performLog = false)
+        {
+            if(performLog)
+            {
+                lock (LogLock)
+                {
+                    foreach(var messageToBeLogged in messagesToBeLogged)
+                    {
+                        LogViewer?.LogEntries?.Add(new LogEntry() { DateTime = DateTime.Now, Index = currentIndex, Message = messageToBeLogged });
+                        currentIndex++;
+                    }
+                    messagesToBeLogged = new List<string>();
+                    LogViewer?.LogEntries?.Add(new LogEntry() { DateTime = DateTime.Now, Index = currentIndex, Message = message });
+                    currentIndex++;
+                }
+            }
+            else
+            {
+                messagesToBeLogged.Add(message);
+            }    
+        }
+
+        private async void StartContinuousDeploymentBtn_Click(object sender, RoutedEventArgs e)
+        {
+            StartDeploymentBtnAndCreateJsonConfigFile_Click(sender, null);
+            if (_continuousDeploymentTimer != null)
+            {
+                _continuousDeploymentTimer.Stop();
+                _continuousDeploymentTimer.Tick -= ContinuousDeploymentTimer_Tick;
+            }
+            _continuousDeploymentTimer = new DispatcherTimer();
+            _continuousDeploymentTimer.Interval = TimeSpan.FromSeconds(5);
+            _continuousDeploymentTimer.Tick += ContinuousDeploymentTimer_Tick;
+            _continuousDeploymentTimer.Start();
+            LogMessage($"Started continuous deployment in interval: {_continuousDeploymentTimer.Interval}!", true);
+        }
+
+        private async void StopContinuousDeploymentBtn_Click(object sender, RoutedEventArgs e)
+        {
+            if (_continuousDeploymentTimer != null)
+            {
+                _continuousDeploymentTimer.Stop();
+                _continuousDeploymentTimer.Tick -= ContinuousDeploymentTimer_Tick;
+            }
+            LogMessage("Stopped continuous deployment!", true);
+        }
+
         private async void StartDeleteBtn_Click(object sender, RoutedEventArgs e)
         {
             SaveSettingsToJsonFile(SaveSettingsFilePath);
-            var serviceFactory = new ApiStandardServiceFactory();
             List<ApiWebAppData> applicationsToDelete = new List<ApiWebAppData>();
             foreach (var entry in this.ApplicationSettings.WebAppDeploySelectionSettings.SelectedItems)
             {
@@ -536,18 +762,9 @@ namespace Webserver.Api.Gui
             var watches = new List<Stopwatch>();
             List<string> plcsToDeleteWebAppsFrom = new List<string>();
             List<Task> tasks = new List<Task>();
-            List<string> plcsToTrust = new List<string>();
             var message = "";
-            ServicePointManager.ServerCertificateValidationCallback += (mysender, certificate, chain, sslPolicyErrors) =>
-            {
-                if (mysender is System.Net.HttpWebRequest)
-                {
-                    var mySenderRequest = mysender as HttpWebRequest;
-                    var host = mySenderRequest.Address.Host;
-                    return (plcsToTrust.Contains(host));
-                }
-                return false;
-            };
+            PlcsToTrust = new List<string>();
+            ServicePointManager.ServerCertificateValidationCallback += Certificate_Validation_Callback;
             foreach (var entry in this.ApplicationSettings.RackSelectionSettings.SelectedItems)
             {
                 var pathToRackConfiguration = this.ApplicationSettings.RackSelectionSettings.AvailableItems.First(el => el.Value == entry).Key;
@@ -560,54 +777,10 @@ namespace Webserver.Api.Gui
                         if (!plcsToDeleteWebAppsFrom.Any(el => el == plc))
                         {
                             plcsToDeleteWebAppsFrom.Add(plc);
-                            var dialog = new LoginDialog();
-                            string password = "";
-                            string username = "";
-                            dialog.PlcIpOrDnsNameInput.Text += plc;
-                            if (dialog.ShowDialog() == true)
-                            {
-                                password = dialog.PasswordNameTextBox.Password;
-                                username = dialog.UserNameTextBox.Text == "" ? "Everybody" : dialog.UserNameTextBox.Text;
-                            }
-                            else
-                            {
-                                username = "Everybody";
-                                password = "";
-                            }
-
+                            var credentials = GetCredentials(plc);
                             ApiHttpClientRequestHandler requestHandler = null;
-                            try
-                            {
-                                requestHandler = (ApiHttpClientRequestHandler)await serviceFactory.GetApiHttpClientRequestHandlerAsync(plc, username, password);
-                            }
-                            catch (HttpRequestException ex)
-                            {
-                                if (ex.InnerException is WebException)
-                                {
-                                    var assumeItsExpectedWebException = true; // created this bool since the exception message is languagedependant
-                                    if (ex.InnerException.Message == "The underlying connection was closed: Could not establish trust relationship for the SSL/TLS secure channel."
-                                        || ex.Message == "Die zugrunde liegende Verbindung wurde geschlossen: Für den geschützten SSL/TLS-Kanal konnte keine Vertrauensstellung hergestellt werden.."
-                                        || assumeItsExpectedWebException)
-                                    {
-                                        var result = System.Windows.MessageBox.Show("The plc certificate was not considered trusted! Do you want to connect anyways?", "ERR_CERT_AUTHORITY_INVALID", MessageBoxButton.YesNo);
-                                        switch (result)
-                                        {
-                                            case MessageBoxResult.Yes:
-                                                plcsToTrust.Add(plc);
-                                                break;
-                                        }
-                                        requestHandler = (ApiHttpClientRequestHandler)await serviceFactory.GetApiHttpClientRequestHandlerAsync(plc, username, password);
-                                    }
-                                    else
-                                    {
-                                        throw ex;
-                                    }
-                                }
-                                else
-                                {
-                                    throw ex;
-                                }
-                            }
+                            requestHandler = await GetRequestHandlerAsync(plc, credentials);
+                            await CheckPermissionsAsync(plc, requestHandler, credentials);
                             handlers.Add(requestHandler);
                         }
                     }
@@ -625,26 +798,32 @@ namespace Webserver.Api.Gui
             {
                 foreach (var handler in handlers)
                 {
-                    try
+                    tasks.Add(Task.Run(async () =>
                     {
-                        var stopwatch = new Stopwatch();
-                        watches.Add(stopwatch);
-                        stopwatch.Start();
-                        tasks.Add(Task.Run(async () =>
+                        try
                         {
+                            var stopwatch = new Stopwatch();
+                            watches.Add(stopwatch);
+                            stopwatch.Start();
                             await handler.WebAppDeleteAsync(app);
-                        }));
-                        stopwatch.Stop();
-                        Console.WriteLine($"Successfully deleted app {app.Name} in {stopwatch.Elapsed}");
-                    }
-                    catch (Exception ex)
-                    {
-                        message += $"Delete App failed for {app.Name} with {Environment.NewLine}{ex.GetType()}:{ex.Message}";
-                    }
+                            stopwatch.Stop();
+                            LogMessage($"Successfully deleted app {app.Name} in {stopwatch.Elapsed}");
+                        }
+                        catch (Exception ex)
+                        {
+                            message += $"Delete App failed for {app.Name} with {Environment.NewLine}{ex.GetType()}:{ex.Message}";
+                            var currentException = ex.InnerException;
+                            while (currentException != null)
+                            {
+                                message += $"Inner: {currentException.GetType()}:{currentException.Message}";
+                                currentException = currentException.InnerException;
+                            }
+                        }
+                    }));
                 }
                 if (!Task.WaitAll(tasks.ToArray(), TimeSpan.FromMinutes(10)))
                 {
-                    message += "could not successfully deploy all apps!";
+                    message += "could not successfully delete all apps!";
                 }
             }
 
@@ -665,8 +844,9 @@ namespace Webserver.Api.Gui
                 }
             }
             this.Cursor = System.Windows.Input.Cursors.Arrow;
-            if (!string.IsNullOrEmpty(message))
-                System.Windows.MessageBox.Show(message.Trim());
+            //if (!string.IsNullOrEmpty(message))
+            //System.Windows.MessageBox.Show(message.Trim());
+            LogMessage(message, true);
         }
     }
 }
