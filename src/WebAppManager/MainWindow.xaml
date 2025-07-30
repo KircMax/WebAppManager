@@ -12,8 +12,8 @@
         xmlns:local="clr-namespace:Webserver.Api.Gui"
         xmlns:CustomControls="clr-namespace:Webserver.Api.Gui.CustomControls" xmlns:customcontrols="clr-namespace:Siemens.Simatic.S7.Webserver.API.WebApplicationManager.CustomControls"
         mc:Ignorable="d"
-        Height="680" Width="800"
-        MinHeight="680" MinWidth="800">
+        Height="740" Width="800"
+        MinHeight="740" MinWidth="800">
     <DockPanel>
         <Menu DockPanel.Dock="Top" FontSize="12" x:Name="MenuElement">
             <MenuItem Header="_File">
@@ -30,8 +30,10 @@
                 <ColumnDefinition Width="2*"/>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
             <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
@@ -46,7 +48,7 @@
             <Button Grid.Column="2" Grid.Row="0" Margin="10,10,10,0"  Name="WebAppConfigAdder" Click="WebAppConfigAdder_Click">...</Button>
             <CustomControls:SelectionSettingsControl 
                         x:Name="WebAppDeploySelectionSettingsControl"
-                        Grid.ColumnSpan="3" Grid.Row="1" Margin="0,10,0,10" 
+                        Grid.ColumnSpan="5" Grid.Row="1" Margin="0,10,0,10" 
                         Settings="{Binding ElementName=this,Path=ApplicationSettings.WebAppDeploySelectionSettings,Mode=TwoWay,UpdateSourceTrigger=PropertyChanged}">
             </CustomControls:SelectionSettingsControl>
 
@@ -57,20 +59,31 @@
 
             <CustomControls:SelectionSettingsControl 
                         x:Name="PlcRackSelectionSettingsControl"
-                        Grid.ColumnSpan="3" Grid.Row="5" Margin="0,10,0,10" 
+                        Grid.ColumnSpan="5" Grid.Row="5" Margin="0,10,0,10" 
                         Settings="{Binding ElementName=this,Path=ApplicationSettings.RackSelectionSettings,Mode=TwoWay,UpdateSourceTrigger=PropertyChanged}">
             </CustomControls:SelectionSettingsControl>
 
-            <GroupBox Grid.ColumnSpan="2" Grid.Row="6">
+            <GroupBox Grid.Column="0" Grid.Row="6">
                 <Button Name="StartDeploymentBtn" Click="StartDeploymentBtnAndCreateJsonConfigFile_Click">Start Deployment</Button>
+            </GroupBox>
+            <GroupBox Grid.Column="1" Grid.Row="6">
+                <Button Name="StartContinuousDeploymentBtn" Click="StartContinuousDeploymentBtn_Click">Start Continuous Deployment</Button>
+            </GroupBox>
+            <GroupBox Grid.Column="2" Grid.Row="6">
+                <Button Name="StopContinuousDeploymentBtn" Click="StopContinuousDeploymentBtn_Click">Stop Continuous Deployment</Button>
             </GroupBox>
             <GroupBox Grid.Column="3" Grid.Row="6">
                 <Button Name="StartDeleteBtn" Click="StartDeleteBtn_Click">Delete WebApps</Button>
             </GroupBox>
 
+            <!--
+            <customcontrols:LogViewer x:Name="ApplicationLogViewer" Grid.ColumnSpan="5" Grid.Row="7" Height="80">
+
+            </customcontrols:LogViewer>-->
+
             <customcontrols:ProgressBarWithTextControl 
                 IsEnabled="true"
-                Grid.ColumnSpan="2" Grid.Row="7" x:Name="MyProgressBar" 
+                Grid.ColumnSpan="2" Grid.Row="8" x:Name="MyProgressBar" 
                 ProgressBarValue="{Binding ElementName=this,Path=ProgressBarValue,Mode=TwoWay,UpdateSourceTrigger=PropertyChanged}"
                                                        ></customcontrols:ProgressBarWithTextControl>
         </Grid>

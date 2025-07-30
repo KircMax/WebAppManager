@@ -181,6 +181,9 @@
       <DependentUpon>App.xaml</DependentUpon>
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="CustomControls\LogViewer.xaml.cs">
+      <DependentUpon>LogViewer.xaml</DependentUpon>
+    </Compile>
     <Compile Include="CustomControls\ProgressBarWithTextControl.xaml.cs">
       <DependentUpon>ProgressBarWithTextControl.xaml</DependentUpon>
     </Compile>
@@ -230,6 +233,10 @@
     <Compile Include="WebAppManagerEvents\WebAppDirectorySettingsChanged.cs" />
     <Compile Include="WebAppManagerEvents\WebAppMangagerEventArgs\SelectionSettingsAvailableItemsChangedArgs.cs" />
     <Compile Include="WebAppManagerEvents\WebAppMangagerEventArgs\WebAppDirectorySettingsChangedArgs.cs" />
+    <Page Include="CustomControls\LogViewer.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
     <Page Include="CustomControls\ProgressBarWithTextControl.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
