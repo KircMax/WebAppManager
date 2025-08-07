@@ -102,7 +102,7 @@ namespace Webserver.Api.Gui
             }
         }
 
-        public LogViewer LogViewer { get; set; }
+        public static LogViewer LogViewer { get; set; }
 
         public MainWindow()
         {
@@ -114,8 +114,11 @@ namespace Webserver.Api.Gui
             InitControlSettings();
 
             DataContext = this;
-            LogViewer = new LogViewer();
-            LogViewer.Show();
+            if(LogViewer == null)
+            {
+                LogViewer = new LogViewer();
+                LogViewer.Show();
+            }
             ServiceFactory = new ApiStandardServiceFactory();
         }
 
