@@ -1,6 +1,7 @@
 ﻿// Copyright (c) 2022, Siemens AG
 //
 // SPDX-License-Identifier: MIT
+
 // Portions of this file are inspired by or adapted from:
 // https://stackoverflow.com/questions/16743804/implementing-a-log-viewer-with-wpf
 // Credit: Stack Overflow community
@@ -53,7 +54,6 @@ namespace Siemens.Simatic.S7.Webserver.API.WebApplicationManager.CustomControls
         public List<LogEntry> Contents { get; set; }
     }
     /// <summary>
-    /// 
     /// https://stackoverflow.com/questions/16743804/implementing-a-log-viewer-with-wpf
     /// </summary>
     public partial class LogViewer : Window

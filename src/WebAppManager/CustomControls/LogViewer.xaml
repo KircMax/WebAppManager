@@ -18,7 +18,7 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate>
-                        <ScrollViewer CanContentScroll="True" ScrollChanged="ScrollViewer_ScrollChanged">
+                        <ScrollViewer>
                             <ItemsPresenter/>
                         </ScrollViewer>
                     </ControlTemplate>
@@ -99,7 +99,7 @@
         <ItemsControl ItemsSource="{Binding}" Style="{StaticResource LogViewerStyle}">
             <ItemsControl.Template>
                 <ControlTemplate>
-                    <ScrollViewer CanContentScroll="True">
+                    <ScrollViewer CanContentScroll="True" ScrollChanged="ScrollViewer_ScrollChanged">
                         <ItemsPresenter/>
                     </ScrollViewer>
                 </ControlTemplate>
