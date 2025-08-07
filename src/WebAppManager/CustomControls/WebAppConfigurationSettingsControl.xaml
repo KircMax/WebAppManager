@@ -70,6 +70,15 @@
                 <RadioButton GroupName="WebAppTypeButton" Name="WebAppStateVoTButton" Focusable="False" IsHitTestVisible="False" IsChecked="{Binding Settings.TypeRadioBtn, Mode=TwoWay, Converter={StaticResource EnumBooleanConverter},ConverterParameter={x:Static local:WebAppType.VoT}}">VoT</RadioButton>
             </StackPanel>
         </GroupBox>
+        <GroupBox Grid.Row="1" Grid.Column="2" Header="WebApp Redirect Mode">
+            <StackPanel>
+                <StackPanel.Resources>
+                    <local:EnumBooleanConverter x:Key="EnumBooleanConverter" />
+                </StackPanel.Resources>
+                <RadioButton GroupName="WebAppRedirectModeButton" Name="WebAppRedirectModeRedirectButton" IsChecked="{Binding Settings.RedirectRadioBtn, Mode=TwoWay, Converter={StaticResource EnumBooleanConverter},ConverterParameter={x:Static local:WebAppRedirectMode.Redirect}}">Redirect</RadioButton>
+                <RadioButton GroupName="WebAppRedirectModeButton" Name="WebAppRedirectModeForwardButton" IsChecked="{Binding Settings.RedirectRadioBtn, Mode=TwoWay, Converter={StaticResource EnumBooleanConverter},ConverterParameter={x:Static local:WebAppRedirectMode.Forward}}">Forward</RadioButton>
+            </StackPanel>
+        </GroupBox>
         <HeaderedContentControl Grid.ColumnSpan="3" Grid.Row="2" Header="Optional Configuration: seperate entries by ',' (comma)"></HeaderedContentControl>
         <GroupBox Grid.ColumnSpan="3" Grid.Row="3" Header="Protected resource names">
             <StackPanel>

@@ -199,6 +199,7 @@
     <Compile Include="CustomControls\WebAppDirectorySettingsControl.xaml.cs">
       <DependentUpon>WebAppDirectorySettingsControl.xaml</DependentUpon>
     </Compile>
+    <Compile Include="CustomControls\WebAppRedirectMode.cs" />
     <Compile Include="CustomControls\WebAppSelectionSettingsControl.xaml.cs">
       <DependentUpon>WebAppSelectionSettingsControl.xaml</DependentUpon>
     </Compile>

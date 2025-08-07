@@ -12,8 +12,10 @@
         xmlns:local="clr-namespace:Webserver.Api.Gui.Pages"
         xmlns:CustomControls="clr-namespace:Webserver.Api.Gui.CustomControls"
         mc:Ignorable="d"
-        Title="WebAppConfigCreatorWindow" Height="450" Width="800"
-        MinHeight="450" MinWidth="800">
+        Title="WebAppConfigCreatorWindow" 
+        Height="450" Width="800"
+        MinHeight="450" MinWidth="800"
+        >
     <Grid>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="793*"/>
