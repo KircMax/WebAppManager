@@ -230,6 +230,7 @@
     <Compile Include="Settings\WebAppManagerSettings.cs" />
     <Compile Include="Settings\WebAppManagerSettingsBase.cs" />
     <Compile Include="Settings\WebAppSelectionSettings.cs" />
+    <Compile Include="Utils\InMemoryLogSaver.cs" />
     <Compile Include="WebAppManagerEvents\SelectionSettingsAvailableItemsChanged.cs" />
     <Compile Include="WebAppManagerEvents\WebAppDirectorySettingsChanged.cs" />
     <Compile Include="WebAppManagerEvents\WebAppMangagerEventArgs\SelectionSettingsAvailableItemsChangedArgs.cs" />

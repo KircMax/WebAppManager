@@ -1,6 +1,7 @@
 ﻿// Copyright (c) 2025, Siemens AG
 //
 // SPDX-License-Identifier: MIT
+using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Serialization;
 using Siemens.Simatic.S7.Webserver.API.Models;
@@ -10,6 +11,7 @@ using Siemens.Simatic.S7.Webserver.API.Services.RequestHandling;
 using Siemens.Simatic.S7.Webserver.API.Services.WebApp;
 using Siemens.Simatic.S7.Webserver.API.WebApplicationManager.CustomControls;
 using Siemens.Simatic.S7.Webserver.API.WebApplicationManager.Settings;
+using Siemens.Simatic.S7.Webserver.API.WebApplicationManager.Utils;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -104,6 +106,9 @@ namespace Webserver.Api.Gui
 
         public static LogViewer LogViewer { get; set; }
 
+        public static InMemoryLogSaver ApplicationLogger { get; set; }
+
+
         public MainWindow()
         {
             this.Title = $"WebApplicationManager @ {System.Reflection.Assembly.GetExecutingAssembly().GetName().Version}";
@@ -119,7 +124,12 @@ namespace Webserver.Api.Gui
                 LogViewer = new LogViewer();
                 LogViewer.Show();
             }
-            ServiceFactory = new ApiStandardServiceFactory();
+            if(ApplicationLogger == null)
+            {
+                ApplicationLogger = new InMemoryLogSaver(LogLevel.Information);
+            }
+            
+            ServiceFactory = new ApiStandardServiceFactory(ApplicationLogger);
         }
 
         private void InitControlSettings()
@@ -437,6 +447,12 @@ namespace Webserver.Api.Gui
                 //System.Windows.MessageBox.Show(messageString);
                 ;
             }
+            var messages = ApplicationLogger.LogMessages;
+            foreach(var logMessage in messages)
+            {
+                LogMessage(logMessage, false);
+            }
+            ApplicationLogger.LogMessages = new List<string>();
             LogMessage(messageString, true);
             ProgressBarValue = new ProgressBarValue(100);
             return messageString;
@@ -849,6 +865,12 @@ namespace Webserver.Api.Gui
             this.Cursor = System.Windows.Input.Cursors.Arrow;
             //if (!string.IsNullOrEmpty(message))
             //System.Windows.MessageBox.Show(message.Trim());
+            var messages = ApplicationLogger.LogMessages;
+            foreach (var logMessage in messages)
+            {
+                LogMessage(logMessage, false);
+            }
+            ApplicationLogger.LogMessages = new List<string>();
             LogMessage(message, true);
         }
     }
