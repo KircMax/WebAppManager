@@ -73,6 +73,10 @@ namespace Webserver.Api.Gui.CustomControls
             {
                 this.WebAppRedirectModeForwardButton.IsChecked = true;
             }
+            else if(this.Settings.RedirectRadioBtn == WebAppRedirectMode.None)
+            {
+                this.WebAppRedirectModeNoneButton.IsChecked = true;
+            }
         }
     }
 }

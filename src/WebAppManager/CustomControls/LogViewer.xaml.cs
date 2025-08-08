@@ -42,7 +42,7 @@ namespace Siemens.Simatic.S7.Webserver.API.WebApplicationManager.CustomControls
 
     public class LogEntry : PropertyChangedBase
     {
-        public DateTime DateTime { get; set; }
+        public DateTime? DateTime { get; set; }
 
         public int Index { get; set; }
 

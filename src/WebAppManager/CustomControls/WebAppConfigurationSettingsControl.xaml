@@ -10,7 +10,9 @@
       xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
       xmlns:local="clr-namespace:Webserver.Api.Gui.CustomControls"
       mc:Ignorable="d" 
-      d:DesignHeight="450" d:DesignWidth="800" x:Name="this">
+        d:DesignHeight="450" d:DesignWidth="800"
+        d:MinHeight="400" d:MinWidth="740"
+        x:Name="this">
     <Grid>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="*"></ColumnDefinition>
@@ -75,6 +77,7 @@
                 <StackPanel.Resources>
                     <local:EnumBooleanConverter x:Key="EnumBooleanConverter" />
                 </StackPanel.Resources>
+                <RadioButton GroupName="WebAppRedirectModeButton" Name="WebAppRedirectModeNoneButton" IsChecked="{Binding Settings.RedirectRadioBtn, Mode=TwoWay, Converter={StaticResource EnumBooleanConverter},ConverterParameter={x:Static local:WebAppRedirectMode.None}}">None</RadioButton>
                 <RadioButton GroupName="WebAppRedirectModeButton" Name="WebAppRedirectModeRedirectButton" IsChecked="{Binding Settings.RedirectRadioBtn, Mode=TwoWay, Converter={StaticResource EnumBooleanConverter},ConverterParameter={x:Static local:WebAppRedirectMode.Redirect}}">Redirect</RadioButton>
                 <RadioButton GroupName="WebAppRedirectModeButton" Name="WebAppRedirectModeForwardButton" IsChecked="{Binding Settings.RedirectRadioBtn, Mode=TwoWay, Converter={StaticResource EnumBooleanConverter},ConverterParameter={x:Static local:WebAppRedirectMode.Forward}}">Forward</RadioButton>
             </StackPanel>

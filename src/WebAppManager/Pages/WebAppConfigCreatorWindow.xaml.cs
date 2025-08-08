@@ -92,43 +92,69 @@ namespace Webserver.Api.Gui.Pages
         {
             if(e.newDirectory != null)
             {
-                ObservableCollection<string> list = new ObservableCollection<string>();
-                foreach (var dir in Directory.GetDirectories(e.newDirectory))
+                try
                 {
-                    DirectoryInfo directoryInfo = new DirectoryInfo(dir);
-                    list.Add(directoryInfo.Name);
+                    ObservableCollection<string> list = new ObservableCollection<string>();
+                    foreach (var dir in Directory.GetDirectories(e.newDirectory))
+                    {
+                        DirectoryInfo directoryInfo = new DirectoryInfo(dir);
+                        list.Add(directoryInfo.Name);
+                    }
+                    this.Settings.WebAppSelectionSettings.PossibleWebAppList = list;
                 }
-                this.Settings.WebAppSelectionSettings.PossibleWebAppList = list;
+                catch(Exception ex)
+                {
+                   System.Windows.Forms.MessageBox.Show(
+                        $"Error accessing WebApp directory: '{e.newDirectory}': {ex.GetType()}:{ex.Message}",
+                        "Directory Error",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Error);
+                    this.Close();
+                    return;
+                }
             }
         }
         private void OnWebAppSelectionSettingsChanged(object sender, SelectionChangedEventArgs e)
         {
             if (e.AddedItems.Count > 0)
             {
-                var directoryName = e.AddedItems[0].ToString();
-                string webAppPath = System.IO.Path.Combine(this.Settings.WebAppDirectorySettings.WebAppDirectory, directoryName);
-                var parser = new ApiWebAppConfigParser(webAppPath, StandardValues.StandardWebAppConfigSaveFileName, new ApiWebAppResourceBuilder(), false);
-                var webAppData = new ApiWebAppData();
-                if(!File.Exists(System.IO.Path.Combine(webAppPath, StandardValues.StandardWebAppConfigSaveFileName)))
+                try
                 {
-                    webAppData = new ApiWebAppData()
+                    var directoryName = e.AddedItems[0].ToString();
+                    string webAppPath = System.IO.Path.Combine(this.Settings.WebAppDirectorySettings.WebAppDirectory, directoryName);
+                    var parser = new ApiWebAppConfigParser(webAppPath, StandardValues.StandardWebAppConfigSaveFileName, new ApiWebAppResourceBuilder(), false);
+                    var webAppData = new ApiWebAppData();
+                    if (!File.Exists(System.IO.Path.Combine(webAppPath, StandardValues.StandardWebAppConfigSaveFileName)))
                     {
-                        Name = directoryName,
-                        PathToWebAppDirectory = webAppPath,
-                        ProtectedResources = new List<string>(),
-                        DirectoriesToIgnoreForUpload = new List<string>(),
-                        FileExtensionsToIgnoreForUpload = new List<string>(),
-                        ResourcesToIgnoreForUpload = new List<string>()
-                    };
-                    var resources = parser.RecursiveGetResources(webAppPath, webAppData);
-                    webAppData.ApplicationResources = resources;
+                        webAppData = new ApiWebAppData()
+                        {
+                            Name = directoryName,
+                            PathToWebAppDirectory = webAppPath,
+                            ProtectedResources = new List<string>(),
+                            DirectoriesToIgnoreForUpload = new List<string>(),
+                            FileExtensionsToIgnoreForUpload = new List<string>(),
+                            ResourcesToIgnoreForUpload = new List<string>()
+                        };
+                        var resources = parser.RecursiveGetResources(webAppPath, webAppData);
+                        webAppData.ApplicationResources = resources;
+                    }
+                    else
+                    {
+                        webAppData = parser.Parse();
+                    }
+                    this.Settings.WebAppConfigurationSettings = new WebAppConfigurationSettings(webAppData);
+                    this.WebAppConfigurationSettingsControl.Settings = this.Settings.WebAppConfigurationSettings;
                 }
-                else
+                catch(Exception ex)
                 {
-                    webAppData = parser.Parse();
+                    System.Windows.Forms.MessageBox.Show(
+                        $"Error loading WebApp configuration '{e.AddedItems[0]}': {ex.GetType()}:{ex.Message}",
+                        "Configuration Error",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Error);
+                    this.Close();
+                    return;
                 }
-                this.Settings.WebAppConfigurationSettings = new WebAppConfigurationSettings(webAppData);
-                this.WebAppConfigurationSettingsControl.Settings = this.Settings.WebAppConfigurationSettings;
             }
         }
 
@@ -152,17 +178,30 @@ namespace Webserver.Api.Gui.Pages
                 return;
             }
             
-            var webAppManagerSettings = new WebAppManagerSettings();
-            string path = System.IO.Path.Combine(CurrentExeDir.FullName,StandardValues.SettingsDirectoryName, StandardValues.StandardSaveFileName);
-            if (!File.Exists(path))
+            try
             {
-                throw new FileNotFoundException($"WebAppManagerSettings at {Environment.NewLine}{path}{Environment.NewLine}not found!");
+                var webAppManagerSettings = new WebAppManagerSettings();
+                string path = System.IO.Path.Combine(CurrentExeDir.FullName, StandardValues.SettingsDirectoryName, StandardValues.StandardSaveFileName);
+                if (!File.Exists(path))
+                {
+                    throw new FileNotFoundException($"WebAppManagerSettings at {Environment.NewLine}{path}{Environment.NewLine}not found!");
+                }
+                string configFile = File.ReadAllText(path);
+                webAppManagerSettings = JsonConvert.DeserializeObject<WebAppManagerSettings>(configFile);
+                webAppManagerSettings.WebAppDeploySelectionSettings.AvailableItems[System.IO.Path.Combine(this.Settings.WebAppConfigurationSettings.WebAppData.PathToWebAppDirectory, StandardValues.StandardWebAppConfigSaveFileName)] = this.Settings.WebAppConfigurationSettings.WebAppData.Name;
+                webAppManagerSettings.Save(System.IO.Path.Combine(CurrentExeDir.FullName, StandardValues.SettingsDirectoryName));
+                System.Windows.Forms.MessageBox.Show("Saved successfully!");
             }
-            string configFile = File.ReadAllText(path);
-            webAppManagerSettings = JsonConvert.DeserializeObject<WebAppManagerSettings>(configFile);
-            webAppManagerSettings.WebAppDeploySelectionSettings.AvailableItems[System.IO.Path.Combine(this.Settings.WebAppConfigurationSettings.WebAppData.PathToWebAppDirectory, StandardValues.StandardWebAppConfigSaveFileName)] = this.Settings.WebAppConfigurationSettings.WebAppData.Name;
-            webAppManagerSettings.Save(System.IO.Path.Combine(CurrentExeDir.FullName, StandardValues.SettingsDirectoryName));
-            System.Windows.Forms.MessageBox.Show("Saved successfully!");
+            catch (Exception ex)
+            {
+                System.Windows.Forms.MessageBox.Show(
+                    $"Error saving WebApp configuration: {ex.Message}",
+                    "Save Error",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+                this.Close();
+                return;
+            }
         }
         protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
         {
@@ -208,7 +247,12 @@ namespace Webserver.Api.Gui.Pages
 
         public void SetWindowScreen(Window window, Screen screen)
         {
-            if (screen != null)
+            if (screen == null || window == null)
+            {
+                return;
+            }
+
+            try
             {
                 if (!window.IsLoaded)
                 {
@@ -216,15 +260,87 @@ namespace Webserver.Api.Gui.Pages
                 }
 
                 var workingArea = screen.WorkingArea;
-                window.Left = workingArea.Left;
-                window.Top = workingArea.Top;
+                
+                // Get DPI scaling factor
+                var dpiScale = GetDpiScale(window);
+                
+                // Calculate scaled coordinates
+                var scaledLeft = workingArea.Left / dpiScale.DpiScaleX;
+                var scaledTop = workingArea.Top / dpiScale.DpiScaleY;
+                var scaledWidth = workingArea.Width / dpiScale.DpiScaleX;
+                var scaledHeight = workingArea.Height / dpiScale.DpiScaleY;
+                
+                // Ensure window size is reasonable and fits on screen
+                var windowWidth = window.Width;
+                var windowHeight = window.Height;
+                
+                // If window size is not set or NaN, use a default size
+                if (double.IsNaN(windowWidth) || windowWidth <= 0)
+                {
+                    windowWidth = Math.Min(800, scaledWidth * 0.8);
+                    window.Width = windowWidth;
+                }
+                
+                if (double.IsNaN(windowHeight) || windowHeight <= 0)
+                {
+                    windowHeight = Math.Min(600, scaledHeight * 0.8);
+                    window.Height = windowHeight;
+                }
+                
+                // Center the window on the target screen, with some margin from edges
+                var margin = 50 / dpiScale.DpiScaleX; // 50 pixel margin, scaled
+                var left = scaledLeft + margin;
+                var top = scaledTop + margin;
+                
+                // Ensure the window fits completely on the screen
+                if (left + windowWidth > scaledLeft + scaledWidth)
+                {
+                    left = scaledLeft + scaledWidth - windowWidth - margin;
+                }
+                
+                if (top + windowHeight > scaledTop + scaledHeight)
+                {
+                    top = scaledTop + scaledHeight - windowHeight - margin;
+                }
+                
+                // Final bounds check
+                left = Math.Max(scaledLeft, left);
+                top = Math.Max(scaledTop, top);
+                
+                window.Left = left;
+                window.Top = top;
             }
+            catch (Exception ex)
+            {
+                // Fallback to center screen if anything goes wrong
+                System.Windows.Forms.MessageBox.Show($"SetWindowScreen failed: {ex.Message}. Using fallback positioning.");
+                window.WindowStartupLocation = WindowStartupLocation.CenterScreen;
+            }
+        }
+        
+        private (double DpiScaleX, double DpiScaleY) GetDpiScale(Window window)
+        {
+            try
+            {
+                var source = PresentationSource.FromVisual(window);
+                if (source?.CompositionTarget != null)
+                {
+                    return (source.CompositionTarget.TransformToDevice.M11, 
+                           source.CompositionTarget.TransformToDevice.M22);
+                }
+            }
+            catch
+            {
+                // Fallback if we can't get DPI info
+            }
+            
+            // Default DPI scaling (96 DPI = 1.0 scale)
+            return (1.0, 1.0);
         }
 
         public Screen GetWindowScreen(Window window)
         {
             return Screen.FromHandle(new System.Windows.Interop.WindowInteropHelper(window).Handle);
         }
-
     }
 }

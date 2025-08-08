@@ -28,6 +28,7 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Forms;
 using System.Windows.Input;
+using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Threading;
 using Webserver.Api.Gui.Pages;
@@ -124,11 +125,17 @@ namespace Webserver.Api.Gui
                 LogViewer = new LogViewer();
                 LogViewer.Show();
             }
+
             if(ApplicationLogger == null)
             {
+#if DEBUG
+                ApplicationLogger = new InMemoryLogSaver(LogLevel.Debug);
+#else
                 ApplicationLogger = new InMemoryLogSaver(LogLevel.Information);
+#endif
             }
-            
+
+
             ServiceFactory = new ApiStandardServiceFactory(ApplicationLogger);
         }
 
@@ -289,7 +296,7 @@ namespace Webserver.Api.Gui
             }
         }
 
-        private async Task<string> DeployOnceAsync(bool showMessageDeployed = true)
+        private async Task DeployOnceAsync(bool showMessageDeployed = true)
         {
             ProgressBarValue = new ProgressBarValue(0);
             this.Cursor = System.Windows.Input.Cursors.Wait;
@@ -455,7 +462,6 @@ namespace Webserver.Api.Gui
             ApplicationLogger.LogMessages = new List<string>();
             LogMessage(messageString, true);
             ProgressBarValue = new ProgressBarValue(100);
-            return messageString;
         }
 
         private async void StartDeploymentBtnAndCreateJsonConfigFile_Click(object sender, RoutedEventArgs e)
@@ -562,7 +568,12 @@ namespace Webserver.Api.Gui
 
         public void SetWindowScreen(Window window, Screen screen)
         {
-            if (screen != null)
+            if (screen == null || window == null)
+            {
+                return;
+            }
+
+            try
             {
                 if (!window.IsLoaded)
                 {
@@ -570,9 +581,82 @@ namespace Webserver.Api.Gui
                 }
 
                 var workingArea = screen.WorkingArea;
-                window.Left = workingArea.Left;
-                window.Top = workingArea.Top;
+                
+                // Get DPI scaling factor
+                var dpiScale = GetDpiScale(window);
+                
+                // Calculate scaled coordinates
+                var scaledLeft = workingArea.Left / dpiScale.DpiScaleX;
+                var scaledTop = workingArea.Top / dpiScale.DpiScaleY;
+                var scaledWidth = workingArea.Width / dpiScale.DpiScaleX;
+                var scaledHeight = workingArea.Height / dpiScale.DpiScaleY;
+                
+                // Ensure window size is reasonable and fits on screen
+                var windowWidth = window.Width;
+                var windowHeight = window.Height;
+                
+                // If window size is not set or NaN, use a default size
+                if (double.IsNaN(windowWidth) || windowWidth <= 0)
+                {
+                    windowWidth = Math.Min(800, scaledWidth * 0.8);
+                    window.Width = windowWidth;
+                }
+                
+                if (double.IsNaN(windowHeight) || windowHeight <= 0)
+                {
+                    windowHeight = Math.Min(600, scaledHeight * 0.8);
+                    window.Height = windowHeight;
+                }
+                
+                // Center the window on the target screen, with some margin from edges
+                var margin = 50 / dpiScale.DpiScaleX; // 50 pixel margin, scaled
+                var left = scaledLeft + margin;
+                var top = scaledTop + margin;
+                
+                // Ensure the window fits completely on the screen
+                if (left + windowWidth > scaledLeft + scaledWidth)
+                {
+                    left = scaledLeft + scaledWidth - windowWidth - margin;
+                }
+                
+                if (top + windowHeight > scaledTop + scaledHeight)
+                {
+                    top = scaledTop + scaledHeight - windowHeight - margin;
+                }
+                
+                // Final bounds check
+                left = Math.Max(scaledLeft, left);
+                top = Math.Max(scaledTop, top);
+                
+                window.Left = left;
+                window.Top = top;
             }
+            catch (Exception ex)
+            {
+                // Fallback to center screen if anything goes wrong
+                LogMessage($"SetWindowScreen failed: {ex.Message}. Using fallback positioning.", true);
+                window.WindowStartupLocation = WindowStartupLocation.CenterScreen;
+            }
+        }
+        
+        private (double DpiScaleX, double DpiScaleY) GetDpiScale(Window window)
+        {
+            try
+            {
+                var source = PresentationSource.FromVisual(window);
+                if (source?.CompositionTarget != null)
+                {
+                    return (source.CompositionTarget.TransformToDevice.M11, 
+                           source.CompositionTarget.TransformToDevice.M22);
+                }
+            }
+            catch
+            {
+                // Fallback if we can't get DPI info
+            }
+            
+            // Default DPI scaling (96 DPI = 1.0 scale)
+            return (1.0, 1.0);
         }
 
         public Screen GetWindowScreen(Window window)
@@ -710,8 +794,7 @@ namespace Webserver.Api.Gui
         private async void ContinuousDeploymentTimer_Tick(object sender, EventArgs e)
         {
             PlcsToTrust = new List<string>();
-            var result = await DeployOnceAsync(false);
-            LogMessage(result, true);
+            await DeployOnceAsync(false);
         }
 
         private static object LogLock = new object();
@@ -729,6 +812,12 @@ namespace Webserver.Api.Gui
                         LogViewer?.LogEntries?.Add(new LogEntry() { DateTime = DateTime.Now, Index = currentIndex, Message = messageToBeLogged });
                         currentIndex++;
                     }
+                    foreach(var logMessage in ApplicationLogger.LogMessages)
+                    {
+                        LogViewer?.LogEntries?.Add(new LogEntry() { Index = currentIndex, Message = logMessage });
+                        currentIndex++;
+                    }
+                    ApplicationLogger.LogMessages = new List<string>();
                     messagesToBeLogged = new List<string>();
                     LogViewer?.LogEntries?.Add(new LogEntry() { DateTime = DateTime.Now, Index = currentIndex, Message = message });
                     currentIndex++;

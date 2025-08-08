@@ -9,7 +9,6 @@ namespace Siemens.Simatic.S7.Webserver.API.WebApplicationManager.Utils
 {
     public class InMemoryLogSaver : ILogger
     {
-        private readonly string _logFilePath;
         private static object _lock = new object();
 
         public readonly LogLevel Level;

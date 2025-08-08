@@ -187,6 +187,9 @@ namespace Webserver.Api.Gui.Settings
                     case WebAppRedirectMode.Redirect:
                         WebAppData.Redirect_mode = ApiWebAppRedirectMode.Redirect;
                         break;
+                    case WebAppRedirectMode.None:
+                        WebAppData.Redirect_mode = ApiWebAppRedirectMode.None;
+                        break;
                     default:
                         break;
                 }
@@ -351,6 +354,10 @@ namespace Webserver.Api.Gui.Settings
             else if(WebAppData.Redirect_mode == ApiWebAppRedirectMode.Forward)
             {
                 RedirectRadioBtn = WebAppRedirectMode.Forward;
+            }
+            else if(WebAppData.Redirect_mode == ApiWebAppRedirectMode.None)
+            {
+                RedirectRadioBtn = WebAppRedirectMode.None;
             }
         }
     }
