@@ -27,6 +27,8 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
         <CustomControls:WebAppDirectorySettingsControl x:Name="WebAppDirectorySettingsControl" 
@@ -42,17 +44,7 @@
                                                            Settings="{Binding ElementName=this,Path=Settings.WebAppConfigurationSettings,Mode=TwoWay,UpdateSourceTrigger=PropertyChanged}" >
         </CustomControls:WebAppConfigurationSettingsControl>
 
-        <!--
-        <GroupBox Grid.Row="3" Grid.ColumnSpan="3" Header="Web App Version">
-            <StackPanel>
-                <StackPanel.Resources>
-
-                </StackPanel.Resources>
-                <TextBox></TextBox>
-            </StackPanel>
-        </GroupBox>
-        -->
-        <Button Grid.ColumnSpan="3" Grid.Row="2" Name="Save_WebApp" Click="Save_WebApp_Click" Margin="0,205,0,0" Grid.RowSpan="2">Save configuration</Button>
-        <Button Grid.ColumnSpan="3" Grid.Row="4" Margin="0,10,0,0" Name="BackToMainApplication" Click="BackToMainApplication_Click">Back to Main Application</Button>
+        <Button Grid.ColumnSpan="3" Grid.Row="4" Name="Save_WebApp" Click="Save_WebApp_Click" Margin="0,10,0,0">Save configuration</Button>
+        <Button Grid.ColumnSpan="3" Grid.Row="5" Margin="0,10,0,0" Name="BackToMainApplication" Click="BackToMainApplication_Click">Back to Main Application</Button>
     </Grid>
 </Window>
