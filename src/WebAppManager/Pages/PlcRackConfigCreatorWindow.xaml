@@ -12,7 +12,10 @@
         xmlns:local="clr-namespace:Webserver.Api.Gui.Pages"
         xmlns:CustomControls="clr-namespace:Webserver.Api.Gui.CustomControls"
         mc:Ignorable="d"
-        Title="PlcRackConfigCreatorWindow" Height="450" Width="800">
+        Title="PlcRackConfigCreatorWindow" 
+        Height="450" Width="800"
+        MinHeight="450" MinWidth="740"
+        >
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="auto"></RowDefinition>

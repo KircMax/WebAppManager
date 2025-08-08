@@ -98,7 +98,7 @@
       <HintPath>..\..\packages\Newtonsoft.Json.13.0.3\lib\net45\Newtonsoft.Json.dll</HintPath>
     </Reference>
     <Reference Include="Siemens.Simatic.S7.Webserver.API, Version=3.2.0.0, Culture=neutral, processorArchitecture=AMD64">
-      <HintPath>..\..\packages\Siemens.Simatic.S7.Webserver.API.3.2.11\lib\net48\Siemens.Simatic.S7.Webserver.API.dll</HintPath>
+      <HintPath>..\..\packages\Siemens.Simatic.S7.Webserver.API.3.2.16\lib\net48\Siemens.Simatic.S7.Webserver.API.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Buffers, Version=4.0.5.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
@@ -199,6 +199,7 @@
     <Compile Include="CustomControls\WebAppDirectorySettingsControl.xaml.cs">
       <DependentUpon>WebAppDirectorySettingsControl.xaml</DependentUpon>
     </Compile>
+    <Compile Include="CustomControls\WebAppRedirectMode.cs" />
     <Compile Include="CustomControls\WebAppSelectionSettingsControl.xaml.cs">
       <DependentUpon>WebAppSelectionSettingsControl.xaml</DependentUpon>
     </Compile>
@@ -229,6 +230,7 @@
     <Compile Include="Settings\WebAppManagerSettings.cs" />
     <Compile Include="Settings\WebAppManagerSettingsBase.cs" />
     <Compile Include="Settings\WebAppSelectionSettings.cs" />
+    <Compile Include="Utils\InMemoryLogSaver.cs" />
     <Compile Include="WebAppManagerEvents\SelectionSettingsAvailableItemsChanged.cs" />
     <Compile Include="WebAppManagerEvents\WebAppDirectorySettingsChanged.cs" />
     <Compile Include="WebAppManagerEvents\WebAppMangagerEventArgs\SelectionSettingsAvailableItemsChangedArgs.cs" />

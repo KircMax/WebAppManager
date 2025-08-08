@@ -1,6 +1,7 @@
-﻿// Copyright (c) 2022, Siemens AG
+﻿// Copyright (c) 2025, Siemens AG
 //
 // SPDX-License-Identifier: MIT
+using Siemens.Simatic.S7.Webserver.API.WebApplicationManager.CustomControls;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -63,6 +64,18 @@ namespace Webserver.Api.Gui.CustomControls
             else if(this.Settings.TypeRadioBtn == WebAppType.VoT)
             {
                 this.WebAppStateVoTButton.IsChecked = true;
+            }
+            if(this.Settings.RedirectRadioBtn == WebAppRedirectMode.Redirect)
+            {
+                this.WebAppRedirectModeRedirectButton.IsChecked = true;
+            }
+            else if(this.Settings.RedirectRadioBtn == WebAppRedirectMode.Forward)
+            {
+                this.WebAppRedirectModeForwardButton.IsChecked = true;
+            }
+            else if(this.Settings.RedirectRadioBtn == WebAppRedirectMode.None)
+            {
+                this.WebAppRedirectModeNoneButton.IsChecked = true;
             }
         }
     }

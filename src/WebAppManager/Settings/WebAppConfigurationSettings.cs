@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2022, Siemens AG
+﻿// Copyright (c) 2025, Siemens AG
 //
 // SPDX-License-Identifier: MIT
 using Newtonsoft.Json;
@@ -7,6 +7,7 @@ using Siemens.Simatic.S7.Webserver.API.Models;
 using Siemens.Simatic.S7.Webserver.API.Services;
 using Siemens.Simatic.S7.Webserver.API.Services.FileParser;
 using Siemens.Simatic.S7.Webserver.API.Services.WebApp;
+using Siemens.Simatic.S7.Webserver.API.WebApplicationManager.CustomControls;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -168,6 +169,34 @@ namespace Webserver.Api.Gui.Settings
             }
         }
 
+        private WebAppRedirectMode _redirectRadioBtn;
+        public WebAppRedirectMode RedirectRadioBtn
+        {
+            get
+            {
+                return _redirectRadioBtn;
+            }
+            set
+            {
+                _redirectRadioBtn = value;
+                switch (_redirectRadioBtn)
+                {
+                    case WebAppRedirectMode.Forward:
+                        WebAppData.Redirect_mode = ApiWebAppRedirectMode.Forward;
+                        break;
+                    case WebAppRedirectMode.Redirect:
+                        WebAppData.Redirect_mode = ApiWebAppRedirectMode.Redirect;
+                        break;
+                    case WebAppRedirectMode.None:
+                        WebAppData.Redirect_mode = ApiWebAppRedirectMode.None;
+                        break;
+                    default:
+                        break;
+                }
+                OnPropertyChange("RedirectRadioBtn");
+            }
+        }
+
         private WebAppType _typeRadioBtn;
         public WebAppType TypeRadioBtn
         {
@@ -317,6 +346,18 @@ namespace Webserver.Api.Gui.Settings
             else if(WebAppData.Type == ApiWebAppType.VoT)
             {
                 TypeRadioBtn = WebAppType.VoT;
+            }
+            if(WebAppData.Redirect_mode == ApiWebAppRedirectMode.Redirect)
+            {
+                RedirectRadioBtn = WebAppRedirectMode.Redirect;
+            }
+            else if(WebAppData.Redirect_mode == ApiWebAppRedirectMode.Forward)
+            {
+                RedirectRadioBtn = WebAppRedirectMode.Forward;
+            }
+            else if(WebAppData.Redirect_mode == ApiWebAppRedirectMode.None)
+            {
+                RedirectRadioBtn = WebAppRedirectMode.None;
             }
         }
     }

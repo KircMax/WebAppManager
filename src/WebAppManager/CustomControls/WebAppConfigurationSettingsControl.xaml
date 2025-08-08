@@ -10,7 +10,9 @@
       xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
       xmlns:local="clr-namespace:Webserver.Api.Gui.CustomControls"
       mc:Ignorable="d" 
-      d:DesignHeight="450" d:DesignWidth="800" x:Name="this">
+        d:DesignHeight="450" d:DesignWidth="800"
+        d:MinHeight="400" d:MinWidth="740"
+        x:Name="this">
     <Grid>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="*"></ColumnDefinition>
@@ -18,6 +20,7 @@
             <ColumnDefinition Width="*"></ColumnDefinition>
         </Grid.ColumnDefinitions>
         <Grid.RowDefinitions>
+            <RowDefinition Height="auto"></RowDefinition>
             <RowDefinition Height="auto"></RowDefinition>
             <RowDefinition Height="auto"></RowDefinition>
             <RowDefinition Height="auto"></RowDefinition>
@@ -70,6 +73,16 @@
                 <RadioButton GroupName="WebAppTypeButton" Name="WebAppStateVoTButton" Focusable="False" IsHitTestVisible="False" IsChecked="{Binding Settings.TypeRadioBtn, Mode=TwoWay, Converter={StaticResource EnumBooleanConverter},ConverterParameter={x:Static local:WebAppType.VoT}}">VoT</RadioButton>
             </StackPanel>
         </GroupBox>
+        <GroupBox Grid.Row="1" Grid.Column="2" Header="WebApp Redirect Mode">
+            <StackPanel>
+                <StackPanel.Resources>
+                    <local:EnumBooleanConverter x:Key="EnumBooleanConverter" />
+                </StackPanel.Resources>
+                <RadioButton GroupName="WebAppRedirectModeButton" Name="WebAppRedirectModeNoneButton" IsChecked="{Binding Settings.RedirectRadioBtn, Mode=TwoWay, Converter={StaticResource EnumBooleanConverter},ConverterParameter={x:Static local:WebAppRedirectMode.None}}">None</RadioButton>
+                <RadioButton GroupName="WebAppRedirectModeButton" Name="WebAppRedirectModeRedirectButton" IsChecked="{Binding Settings.RedirectRadioBtn, Mode=TwoWay, Converter={StaticResource EnumBooleanConverter},ConverterParameter={x:Static local:WebAppRedirectMode.Redirect}}">Redirect</RadioButton>
+                <RadioButton GroupName="WebAppRedirectModeButton" Name="WebAppRedirectModeForwardButton" IsChecked="{Binding Settings.RedirectRadioBtn, Mode=TwoWay, Converter={StaticResource EnumBooleanConverter},ConverterParameter={x:Static local:WebAppRedirectMode.Forward}}">Forward</RadioButton>
+            </StackPanel>
+        </GroupBox>
         <HeaderedContentControl Grid.ColumnSpan="3" Grid.Row="2" Header="Optional Configuration: seperate entries by ',' (comma)"></HeaderedContentControl>
         <GroupBox Grid.ColumnSpan="3" Grid.Row="3" Header="Protected resource names">
             <StackPanel>
@@ -91,7 +104,13 @@
                 <TextBox Text="{Binding ElementName=this,Path=Settings.DirectoriesToIgnoreForUploadGui,Mode=TwoWay}"></TextBox>
             </StackPanel>
         </GroupBox>
-
+        <GroupBox Grid.Row="5" Grid.ColumnSpan="3" Header="Web App Version" Margin="0,0,0,0">
+            <StackPanel>
+                <StackPanel.Resources>
+                </StackPanel.Resources>
+                <TextBox Text="{Binding ElementName=this,Path=Settings.WebAppData.Version,Mode=TwoWay}"></TextBox>
+            </StackPanel>
+        </GroupBox>
     </Grid>
     
 </UserControl>
