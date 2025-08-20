@@ -326,6 +326,7 @@ namespace Webserver.Api.Gui.Settings
             this.WebAppData.FileExtensionsToIgnoreForUpload.ForEach(el => FileExtensionsToIgnoreForUploadGui += el + ",");
             this.WebAppData.DirectoriesToIgnoreForUpload.ForEach(el => DirectoriesToIgnoreForUploadGui += el + ",");
             ObservableCollection<string> list = new ObservableCollection<string>();
+            list.Add((string)"");
             foreach (var resource in WebAppData.ApplicationResources)
             {
                 list.Add(resource.Name);
