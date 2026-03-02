@@ -26,6 +26,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Forms;
 using System.Windows.Input;
 using System.Windows.Media;
@@ -128,15 +129,71 @@ namespace Webserver.Api.Gui
 
             if(ApplicationLogger == null)
             {
+                // Get log level from settings or use default
+                var logLevel = GetLogLevelFromSettings();
+                ApplicationLogger = new InMemoryLogSaver(logLevel);
+            }
+
+            ServiceFactory = new ApiStandardServiceFactory(ApplicationLogger);
+        }
+
+        /// <summary>
+        /// Parse log level from settings string to LogLevel enum
+        /// </summary>
+        /// <returns>LogLevel enum value</returns>
+        private LogLevel GetLogLevelFromSettings()
+        {
+            var logLevelString = ApplicationSettings?.LogLevel;
+            
+            // Handle null or empty settings
+            if (string.IsNullOrEmpty(logLevelString))
+            {
 #if DEBUG
-                ApplicationLogger = new InMemoryLogSaver(LogLevel.Debug);
+                return LogLevel.Debug;
 #else
-                ApplicationLogger = new InMemoryLogSaver(LogLevel.Information);
+                return LogLevel.Information;
 #endif
             }
 
+            // Try to parse the string to LogLevel enum
+            if (Enum.TryParse<LogLevel>(logLevelString, true, out var logLevel))
+            {
+                return logLevel;
+            }
 
-            ServiceFactory = new ApiStandardServiceFactory(ApplicationLogger);
+            // Fallback to default if parsing fails
+#if DEBUG
+            return LogLevel.Debug;
+#else
+            return LogLevel.Information;
+#endif
+        }
+
+        /// <summary>
+        /// Handle log level selection change
+        /// </summary>
+        private void LogLevelComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (sender is System.Windows.Controls.ComboBox comboBox && comboBox.SelectedItem is ComboBoxItem selectedItem)
+            {
+                var newLogLevel = selectedItem.Content.ToString();
+                
+                // Update settings and save
+                if (ApplicationSettings != null)
+                {
+                    ApplicationSettings.LogLevel = newLogLevel;
+                    SaveSettingsToJsonFile(SaveSettingsFilePath);
+                    
+                    // Create new logger with updated level
+                    var logLevel = GetLogLevelFromSettings();
+                    ApplicationLogger = new InMemoryLogSaver(logLevel);
+                    
+                    // Update service factory with new logger
+                    ServiceFactory = new ApiStandardServiceFactory(ApplicationLogger);
+                    
+                    LogMessage($"Log level changed to: {newLogLevel}", true);
+                }
+            }
         }
 
         private void InitControlSettings()

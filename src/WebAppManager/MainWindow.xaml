@@ -42,6 +42,7 @@
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" /> <!-- Added row definition -->
             </Grid.RowDefinitions>
             <Button Grid.Column="0" Grid.Row="0" Margin="10,10,10,0"  Name="WebAppConfigCreatorWindowCreator" Click="WebAppConfigCreatorWindowCreator_Click">Edit WebApplication(s) or create config</Button>
             <TextBlock Grid.Column="1" Grid.Row="0" Margin="10,10,10,0">Add existing configuration file(s)</TextBlock>
@@ -80,6 +81,20 @@
             <customcontrols:LogViewer x:Name="ApplicationLogViewer" Grid.ColumnSpan="5" Grid.Row="7" Height="80">
 
             </customcontrols:LogViewer>-->
+
+            <GroupBox Header="Log Level" Grid.Column="0" Grid.Row="7" Margin="10,10,10,0">
+                <ComboBox x:Name="LogLevelComboBox" 
+                          SelectedValue="{Binding ApplicationSettings.LogLevel, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                          SelectionChanged="LogLevelComboBox_SelectionChanged">
+                    <ComboBoxItem Content="Trace"/>
+                    <ComboBoxItem Content="Debug"/>
+                    <ComboBoxItem Content="Information"/>
+                    <ComboBoxItem Content="Warning"/>
+                    <ComboBoxItem Content="Error"/>
+                    <ComboBoxItem Content="Critical"/>
+                    <ComboBoxItem Content="None"/>
+                </ComboBox>
+            </GroupBox>
 
             <customcontrols:ProgressBarWithTextControl 
                 IsEnabled="true"

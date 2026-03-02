@@ -48,10 +48,30 @@ namespace Webserver.Api.Gui.Settings
             }
         }
 
+        private string _logLevel;
+
+        /// <summary>
+        /// Configurable log level for the application logger. 
+        /// Valid values: Trace, Debug, Information, Warning, Error, Critical, None
+        /// </summary>
+        public string LogLevel
+        {
+            get
+            {
+                return _logLevel;
+            }
+            set
+            {
+                _logLevel = value;
+                OnPropertyChange("LogLevel");
+            }
+        }
+
         public WebAppManagerSettings()
         {
             WebAppDeploySelectionSettings = new SelectionSettings();
             RackSelectionSettings = new SelectionSettings();
+            LogLevel = "Information"; // Default log level
         }
 
         public void Save(string directoryToSaveTo)
