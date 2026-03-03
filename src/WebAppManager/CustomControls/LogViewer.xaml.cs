@@ -59,12 +59,16 @@ namespace Siemens.Simatic.S7.Webserver.API.WebApplicationManager.CustomControls
     public partial class LogViewer : Window
     {
         public ObservableCollection<LogEntry> LogEntries { get; set; }
+        
+        public bool IsClosed { get; private set; }
 
         public LogViewer()
         {
             InitializeComponent();
 
             DataContext = LogEntries = new ObservableCollection<LogEntry>();
+            
+            this.Closed += (s, e) => IsClosed = true;
         }
 
         private bool AutoScroll = true;

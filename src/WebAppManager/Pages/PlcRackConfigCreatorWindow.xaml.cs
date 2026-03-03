@@ -183,7 +183,7 @@ namespace Webserver.Api.Gui.Pages
                 }
                 
                 // Center the window on the target screen, with some margin from edges
-                var margin = 50 / dpiScale.DpiScaleX; // 50 pixel margin, scaled
+                var margin = StandardValues.DefaultWindowMargin / dpiScale.DpiScaleX;
                 var left = scaledLeft + margin;
                 var top = scaledTop + margin;
                 

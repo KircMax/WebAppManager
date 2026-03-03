@@ -135,8 +135,28 @@ namespace Webserver.Api.Gui
             }
 
             ServiceFactory = new ApiStandardServiceFactory(ApplicationLogger);
+            
+            // Ensure cleanup on window closing
+            this.Closing += MainWindow_Closing;
         }
-
+        
+        private void MainWindow_Closing(object sender, CancelEventArgs e)
+        {
+            // Stop and dispose timer
+            if (_continuousDeploymentTimer != null)
+            {
+                _continuousDeploymentTimer.Stop();
+                _continuousDeploymentTimer.Tick -= ContinuousDeploymentTimer_Tick;
+                _continuousDeploymentTimer = null;
+            }
+            
+            // Close LogViewer if it exists
+            if (LogViewer != null && !LogViewer.IsClosed)
+            {
+                LogViewer.Close();
+            }
+        }
+        
         /// <summary>
         /// Parse log level from settings string to LogLevel enum
         /// </summary>
@@ -179,17 +199,14 @@ namespace Webserver.Api.Gui
                 var newLogLevel = selectedItem.Content.ToString();
                 
                 // Update settings and save
-                if (ApplicationSettings != null)
+                if (ApplicationSettings != null && ApplicationLogger != null)
                 {
                     ApplicationSettings.LogLevel = newLogLevel;
                     SaveSettingsToJsonFile(SaveSettingsFilePath);
                     
-                    // Create new logger with updated level
+                    // Update the logger level directly instead of creating new instance
                     var logLevel = GetLogLevelFromSettings();
-                    ApplicationLogger = new InMemoryLogSaver(logLevel);
-                    
-                    // Update service factory with new logger
-                    ServiceFactory = new ApiStandardServiceFactory(ApplicationLogger);
+                    ApplicationLogger.Level = logLevel;
                     
                     LogMessage($"Log level changed to: {newLogLevel}", true);
                 }
@@ -203,6 +220,19 @@ namespace Webserver.Api.Gui
             MyProgressBar.ProgressBarValue = this.ProgressBarValue;
             this.PlcRackSelectionSettingsControl.SelectionSettingsAvailableItemsChanged += AvailableItemsPlcRackChanged;
             this.WebAppDeploySelectionSettingsControl.SelectionSettingsAvailableItemsChanged += AvailableItemsWebAppDeployChanged;
+            
+            // Set the selected log level in the ComboBox
+            if (LogLevelComboBox != null && !string.IsNullOrEmpty(ApplicationSettings.LogLevel))
+            {
+                foreach (ComboBoxItem item in LogLevelComboBox.Items)
+                {
+                    if (item.Content.ToString() == ApplicationSettings.LogLevel)
+                    {
+                        LogLevelComboBox.SelectedItem = item;
+                        break;
+                    }
+                }
+            }
         }
 
         private void AvailableItemsWebAppDeployChanged(object sender, SelectionSettingsAvailableItemsChangedArgs e)
@@ -230,6 +260,17 @@ namespace Webserver.Api.Gui
             {
                 string configFile = File.ReadAllText(path);
                 ApplicationSettings = JsonConvert.DeserializeObject<WebAppManagerSettings>(configFile);
+                
+                // Ensure LogLevel is set (for backward compatibility with old config files)
+                if (string.IsNullOrEmpty(ApplicationSettings.LogLevel))
+                {
+#if DEBUG
+                    ApplicationSettings.LogLevel = "Debug";
+#else
+                    ApplicationSettings.LogLevel = "Information";
+#endif
+                    SaveSettingsToJsonFile(path);
+                }
             }
             else
             {
@@ -304,36 +345,35 @@ namespace Webserver.Api.Gui
             {
                 requestHandler = (ApiHttpClientRequestHandler)await ServiceFactory.GetApiHttpClientRequestHandlerAsync(plc, credentials.UserName, credentials.Password);
             }
-            catch (HttpRequestException ex)
+            catch (HttpRequestException ex) when (ex.InnerException is WebException webEx)
             {
-                if (ex.InnerException is WebException)
+                // Check if this is specifically an SSL/TLS certificate error
+                bool isCertificateError = ex.InnerException.Message.Contains("trust relationship") ||
+                                         ex.InnerException.Message.Contains("Vertrauensstellung") ||
+                                         ex.InnerException.Message.Contains("SSL") ||
+                                         ex.InnerException.Message.Contains("TLS");
+                
+                if (isCertificateError)
                 {
-                    var assumeItsExpectedWebException = true; // created this bool since the exception message is languagedependant
-                    if (ex.InnerException.Message == "The underlying connection was closed: Could not establish trust relationship for the SSL/TLS secure channel."
-                        || ex.Message == "Die zugrunde liegende Verbindung wurde geschlossen: Für den geschützten SSL/TLS-Kanal konnte keine Vertrauensstellung hergestellt werden.."
-                        || assumeItsExpectedWebException)
+                    MessageBoxResult result = MessageBoxResult.Yes;
+                    if (RunWithCertificateCallbackDialog)
                     {
-                        MessageBoxResult result = MessageBoxResult.Yes;
-                        if (RunWithCertificateCallbackDialog)
-                        {
-                            result = System.Windows.MessageBox.Show($"The plc {plc} certificate was not considered trusted! Do you want to connect anyways?", "ERR_CERT_AUTHORITY_INVALID", MessageBoxButton.YesNo);
-                        }
-                        switch (result)
-                        {
-                            case MessageBoxResult.Yes:
-                                PlcsToTrust.Add(plc);
-                                break;
-                        }
+                        result = System.Windows.MessageBox.Show($"The plc {plc} certificate was not considered trusted! Do you want to connect anyways?", "ERR_CERT_AUTHORITY_INVALID", MessageBoxButton.YesNo);
+                    }
+                    
+                    if (result == MessageBoxResult.Yes)
+                    {
+                        PlcsToTrust.Add(plc);
                         requestHandler = (ApiHttpClientRequestHandler)await ServiceFactory.GetApiHttpClientRequestHandlerAsync(plc, credentials.UserName, credentials.Password);
                     }
                     else
                     {
-                        throw ex;
+                        throw;
                     }
                 }
                 else
                 {
-                    throw ex;
+                    throw;
                 }
             }
             return requestHandler;
@@ -353,8 +393,9 @@ namespace Webserver.Api.Gui
             }
         }
 
-        private async Task DeployOnceAsync(bool showMessageDeployed = true)
+        private async Task<string> DeployOnceAsync(bool showMessageDeployed = true)
         {
+            PlcsToTrust = new List<string>();
             ProgressBarValue = new ProgressBarValue(0);
             this.Cursor = System.Windows.Input.Cursors.Wait;
             SaveSettingsToJsonFile(SaveSettingsFilePath);
@@ -369,7 +410,6 @@ namespace Webserver.Api.Gui
             }
             var deployers = new List<(string plc, ApiWebAppDeployer deployer, ApiHttpClientRequestHandler requestHandler)>();
             List<string> plcsToDeployTo = new List<string>();
-            List<Task> tasks = new List<Task>();
             StringBuilder message = new StringBuilder();
             ServicePointManager.ServerCertificateValidationCallback += Certificate_Validation_Callback;
             foreach (var entry in this.ApplicationSettings.RackSelectionSettings.SelectedItems)
@@ -412,6 +452,7 @@ namespace Webserver.Api.Gui
                 int progressAmount = 0;
                 foreach (var app in applicationsToDeploy)
                 {
+                    List<Task> tasks = new List<Task>();
                     foreach (var deployer in deployers)
                     {
                         var myTask = Task.Run(async () =>
@@ -425,47 +466,36 @@ namespace Webserver.Api.Gui
                             }
                             catch (Exception ex)
                             {
-                                message.AppendLine($"DeployOrUpdate failed for {app.Name} to {deployer.plc} with {Environment.NewLine}{ex.GetType()}:{ex.Message}{Environment.NewLine}");
-                                var currentException = ex.InnerException;
-                                while (currentException != null)
+                                lock (message)
                                 {
-                                    message.AppendLine($"Inner: {currentException.GetType()}:{currentException.Message}");
-                                    currentException = currentException.InnerException;
+                                    message.AppendLine($"DeployOrUpdate failed for {app.Name} to {deployer.plc} with {Environment.NewLine}{ex.GetType()}:{ex.Message}{Environment.NewLine}");
+                                    var currentException = ex.InnerException;
+                                    while (currentException != null)
+                                    {
+                                        message.AppendLine($"Inner: {currentException.GetType()}:{currentException.Message}");
+                                        currentException = currentException.InnerException;
+                                    }
                                 }
                             }
-                            progressAmount++;
+                            Interlocked.Increment(ref progressAmount);
                         });
                         tasks.Add(myTask);
                     }
-                    if (!Task.WaitAll(tasks.ToArray(), TimeSpan.FromMinutes(10)))
+                    
+                    try
                     {
-                        message.AppendLine($"could not successfully deploy all apps!");
+                        await Task.WhenAll(tasks);
                     }
+                    catch (Exception ex)
+                    {
+                        message.AppendLine($"One or more deployments failed: {ex.Message}");
+                    }
+                    
                     try
                     {
                         var nextValue = progressAmount * 100 / overallAmount;
-                        //LogMessage($"Set progress bar value to {nextValue}!");
                         ProgressBarValue = new ProgressBarValue(nextValue);
                         MyProgressBar.pbStatus.Value = nextValue;
-                        //var window = new Window();
-                        //window.Show();
-                        //window.Close();
-                        //var messageBox = new System.Windows.Forms.MessageBox();
-                        //var result = System.Windows.MessageBox.Show($"{nextValue}");
-                        /*
-                         * var mBox = new System.Windows.MessageBox
-                        {
-                            Owner = this,
-                            Content = message,
-                            Title = "Message Box Title",
-                            Button = MessageBoxButton.OKCancel
-                        };*/
-                        /*using(var box = new AutoCloseMessageBox())
-                        {
-                            box.Show();
-                        }*/
-
-
                     }
                     catch (Exception ex2)
                     {
@@ -499,7 +529,8 @@ namespace Webserver.Api.Gui
                     }
                     catch (Exception ex)
                     {
-                        message.AppendLine($"Logout request for {handler.plc} failed. and {Environment.NewLine}{ex.GetType()}:{ex.InnerException.Message} and {Environment.NewLine}{Environment.NewLine}{ex.GetType()}:{ex.InnerException.InnerException.Message}");
+                        var innerMessage = ex.InnerException?.Message ?? "No inner exception";
+                        message.AppendLine($"Logout request for {handler.plc} failed: {ex.GetType()}:{ex.Message} - Inner: {innerMessage}");
                     }
                 }
             }
@@ -511,20 +542,32 @@ namespace Webserver.Api.Gui
                 //System.Windows.MessageBox.Show(messageString);
                 ;
             }
-            var messages = ApplicationLogger.LogMessages;
+            
+            var messages = ApplicationLogger?.LogMessages?.ToList() ?? new List<string>();
             foreach(var logMessage in messages)
             {
                 LogMessage(logMessage, false);
             }
-            ApplicationLogger.LogMessages = new List<string>();
+            if (ApplicationLogger != null)
+            {
+                ApplicationLogger.LogMessages = new List<string>();
+            }
             LogMessage(messageString, true);
             ProgressBarValue = new ProgressBarValue(100);
+            return messageString;
         }
 
         private async void StartDeploymentBtnAndCreateJsonConfigFile_Click(object sender, RoutedEventArgs e)
         {
-            PlcsToTrust = new List<string>();
-            await DeployOnceAsync();
+            try
+            {
+                await DeployOnceAsync();
+            }
+            catch (Exception ex)
+            {
+                LogMessage($"Deployment failed: {ex.Message}", true);
+                System.Windows.MessageBox.Show($"Deployment failed: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
         }
 
 
@@ -567,6 +610,26 @@ namespace Webserver.Api.Gui
                         ApplicationSettings = JsonConvert.DeserializeObject<WebAppManagerSettings>(configFile);
                         message = $"Successfully loaded settings from {configFile}";
                         SaveSettingsFilePath = configFile;
+                        
+                        // Update logger level after loading settings
+                        if (ApplicationLogger != null)
+                        {
+                            var logLevel = GetLogLevelFromSettings();
+                            ApplicationLogger.Level = logLevel;
+                        }
+                        
+                        // Update UI controls with new settings
+                        if (LogLevelComboBox != null && !string.IsNullOrEmpty(ApplicationSettings.LogLevel))
+                        {
+                            foreach (ComboBoxItem item in LogLevelComboBox.Items)
+                            {
+                                if (item.Content.ToString() == ApplicationSettings.LogLevel)
+                                {
+                                    LogLevelComboBox.SelectedItem = item;
+                                    break;
+                                }
+                            }
+                        }
                     }
                     catch (Exception ex)
                     {
@@ -666,7 +729,7 @@ namespace Webserver.Api.Gui
                 }
                 
                 // Center the window on the target screen, with some margin from edges
-                var margin = 50 / dpiScale.DpiScaleX; // 50 pixel margin, scaled
+                var margin = StandardValues.DefaultWindowMargin / dpiScale.DpiScaleX;
                 var left = scaledLeft + margin;
                 var top = scaledTop + margin;
                 
@@ -850,8 +913,15 @@ namespace Webserver.Api.Gui
 
         private async void ContinuousDeploymentTimer_Tick(object sender, EventArgs e)
         {
-            PlcsToTrust = new List<string>();
-            await DeployOnceAsync(false);
+            try
+            {
+                var result = await DeployOnceAsync(false);
+                LogMessage(result, true);
+            }
+            catch (Exception ex)
+            {
+                LogMessage($"Continuous deployment error: {ex.Message}", true);
+            }
         }
 
         private static object LogLock = new object();
@@ -869,12 +939,20 @@ namespace Webserver.Api.Gui
                         LogViewer?.LogEntries?.Add(new LogEntry() { DateTime = DateTime.Now, Index = currentIndex, Message = messageToBeLogged });
                         currentIndex++;
                     }
-                    foreach(var logMessage in ApplicationLogger.LogMessages)
+                    
+                    // Thread-safe access to ApplicationLogger.LogMessages
+                    var logMessages = ApplicationLogger?.LogMessages?.ToList() ?? new List<string>();
+                    foreach(var logMessage in logMessages)
                     {
                         LogViewer?.LogEntries?.Add(new LogEntry() { Index = currentIndex, Message = logMessage });
                         currentIndex++;
                     }
-                    ApplicationLogger.LogMessages = new List<string>();
+                    
+                    if (ApplicationLogger != null)
+                    {
+                        ApplicationLogger.LogMessages = new List<string>();
+                    }
+                    
                     messagesToBeLogged = new List<string>();
                     LogViewer?.LogEntries?.Add(new LogEntry() { DateTime = DateTime.Now, Index = currentIndex, Message = message });
                     currentIndex++;
@@ -882,23 +960,34 @@ namespace Webserver.Api.Gui
             }
             else
             {
-                messagesToBeLogged.Add(message);
+                lock (LogLock)
+                {
+                    messagesToBeLogged.Add(message);
+                }
             }    
         }
 
         private async void StartContinuousDeploymentBtn_Click(object sender, RoutedEventArgs e)
         {
-            StartDeploymentBtnAndCreateJsonConfigFile_Click(sender, null);
-            if (_continuousDeploymentTimer != null)
+            try
             {
-                _continuousDeploymentTimer.Stop();
-                _continuousDeploymentTimer.Tick -= ContinuousDeploymentTimer_Tick;
+                await DeployOnceAsync();
+                if (_continuousDeploymentTimer != null)
+                {
+                    _continuousDeploymentTimer.Stop();
+                    _continuousDeploymentTimer.Tick -= ContinuousDeploymentTimer_Tick;
+                }
+                _continuousDeploymentTimer = new DispatcherTimer();
+                _continuousDeploymentTimer.Interval = StandardValues.ContinuousDeploymentInterval;
+                _continuousDeploymentTimer.Tick += ContinuousDeploymentTimer_Tick;
+                _continuousDeploymentTimer.Start();
+                LogMessage($"Started continuous deployment in interval: {_continuousDeploymentTimer.Interval}!", true);
             }
-            _continuousDeploymentTimer = new DispatcherTimer();
-            _continuousDeploymentTimer.Interval = TimeSpan.FromSeconds(5);
-            _continuousDeploymentTimer.Tick += ContinuousDeploymentTimer_Tick;
-            _continuousDeploymentTimer.Start();
-            LogMessage($"Started continuous deployment in interval: {_continuousDeploymentTimer.Interval}!", true);
+            catch (Exception ex)
+            {
+                LogMessage($"Failed to start continuous deployment: {ex.Message}", true);
+                System.Windows.MessageBox.Show($"Failed to start continuous deployment: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
         }
 
         private async void StopContinuousDeploymentBtn_Click(object sender, RoutedEventArgs e)
@@ -907,117 +996,142 @@ namespace Webserver.Api.Gui
             {
                 _continuousDeploymentTimer.Stop();
                 _continuousDeploymentTimer.Tick -= ContinuousDeploymentTimer_Tick;
+                _continuousDeploymentTimer = null;
             }
             LogMessage("Stopped continuous deployment!", true);
         }
 
         private async void StartDeleteBtn_Click(object sender, RoutedEventArgs e)
         {
-            SaveSettingsToJsonFile(SaveSettingsFilePath);
-            List<ApiWebAppData> applicationsToDelete = new List<ApiWebAppData>();
-            foreach (var entry in this.ApplicationSettings.WebAppDeploySelectionSettings.SelectedItems)
+            try
             {
-                var pathToApplication = this.ApplicationSettings.WebAppDeploySelectionSettings.AvailableItems.First(el => el.Value == entry).Key;
-                FileInfo fileInfo = new FileInfo(pathToApplication);
-                var configParser = new ApiWebAppConfigParser(fileInfo.Directory.FullName, fileInfo.Name, new ApiWebAppResourceBuilder(), false);
-                var app = configParser.Parse();
-                applicationsToDelete.Add(app);
-            }
-            List<ApiHttpClientRequestHandler> handlers = new List<ApiHttpClientRequestHandler>();
-            var watches = new List<Stopwatch>();
-            List<string> plcsToDeleteWebAppsFrom = new List<string>();
-            List<Task> tasks = new List<Task>();
-            var message = "";
-            PlcsToTrust = new List<string>();
-            ServicePointManager.ServerCertificateValidationCallback += Certificate_Validation_Callback;
-            foreach (var entry in this.ApplicationSettings.RackSelectionSettings.SelectedItems)
-            {
-                var pathToRackConfiguration = this.ApplicationSettings.RackSelectionSettings.AvailableItems.First(el => el.Value == entry).Key;
-                var content = File.ReadAllText(pathToRackConfiguration);
-                var rack = JsonConvert.DeserializeObject<PlcRackConfigCreatorControlSettings>(content);
-                foreach (var plc in rack.RackPlcs)
+                this.Cursor = System.Windows.Input.Cursors.Wait;
+                SaveSettingsToJsonFile(SaveSettingsFilePath);
+                List<ApiWebAppData> applicationsToDelete = new List<ApiWebAppData>();
+                foreach (var entry in this.ApplicationSettings.WebAppDeploySelectionSettings.SelectedItems)
                 {
-                    try
-                    {
-                        if (!plcsToDeleteWebAppsFrom.Any(el => el == plc))
-                        {
-                            plcsToDeleteWebAppsFrom.Add(plc);
-                            var credentials = GetCredentials(plc);
-                            ApiHttpClientRequestHandler requestHandler = null;
-                            requestHandler = await GetRequestHandlerAsync(plc, credentials);
-                            await CheckPermissionsAsync(plc, requestHandler, credentials);
-                            handlers.Add(requestHandler);
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        message = ex.GetType() + ex.Message + " has occured! " +
-                                  "Check if the web server is activated on the plc";
-                        System.Windows.MessageBox.Show(message);
-                    }
+                    var pathToApplication = this.ApplicationSettings.WebAppDeploySelectionSettings.AvailableItems.First(el => el.Value == entry).Key;
+                    FileInfo fileInfo = new FileInfo(pathToApplication);
+                    var configParser = new ApiWebAppConfigParser(fileInfo.Directory.FullName, fileInfo.Name, new ApiWebAppResourceBuilder(), false);
+                    var app = configParser.Parse();
+                    applicationsToDelete.Add(app);
                 }
-            }
-            Stopwatch overallwatch = new Stopwatch();
-            overallwatch.Start();
-            foreach (var app in applicationsToDelete)
-            {
-                foreach (var handler in handlers)
+                List<ApiHttpClientRequestHandler> handlers = new List<ApiHttpClientRequestHandler>();
+                List<string> plcsToDeleteWebAppsFrom = new List<string>();
+                List<Task> tasks = new List<Task>();
+                StringBuilder message = new StringBuilder();
+                PlcsToTrust = new List<string>();
+                ServicePointManager.ServerCertificateValidationCallback += Certificate_Validation_Callback;
+                foreach (var entry in this.ApplicationSettings.RackSelectionSettings.SelectedItems)
                 {
-                    tasks.Add(Task.Run(async () =>
+                    var pathToRackConfiguration = this.ApplicationSettings.RackSelectionSettings.AvailableItems.First(el => el.Value == entry).Key;
+                    var content = File.ReadAllText(pathToRackConfiguration);
+                    var rack = JsonConvert.DeserializeObject<PlcRackConfigCreatorControlSettings>(content);
+                    foreach (var plc in rack.RackPlcs)
                     {
                         try
                         {
-                            var stopwatch = new Stopwatch();
-                            watches.Add(stopwatch);
-                            stopwatch.Start();
-                            await handler.WebAppDeleteAsync(app);
-                            stopwatch.Stop();
-                            LogMessage($"Successfully deleted app {app.Name} in {stopwatch.Elapsed}");
+                            if (!plcsToDeleteWebAppsFrom.Any(el => el == plc))
+                            {
+                                plcsToDeleteWebAppsFrom.Add(plc);
+                                var credentials = GetCredentials(plc);
+                                ApiHttpClientRequestHandler requestHandler = null;
+                                requestHandler = await GetRequestHandlerAsync(plc, credentials);
+                                await CheckPermissionsAsync(plc, requestHandler, credentials);
+                                handlers.Add(requestHandler);
+                            }
                         }
                         catch (Exception ex)
                         {
-                            message += $"Delete App failed for {app.Name} with {Environment.NewLine}{ex.GetType()}:{ex.Message}";
-                            var currentException = ex.InnerException;
-                            while (currentException != null)
-                            {
-                                message += $"Inner: {currentException.GetType()}:{currentException.Message}";
-                                currentException = currentException.InnerException;
-                            }
+                            var errorMsg = ex.GetType() + ex.Message + " has occured! " +
+                                      "Check if the web server is activated on the plc";
+                            message.AppendLine(errorMsg);
+                            System.Windows.MessageBox.Show(errorMsg);
                         }
-                    }));
+                    }
                 }
-                if (!Task.WaitAll(tasks.ToArray(), TimeSpan.FromMinutes(10)))
+                Stopwatch overallwatch = new Stopwatch();
+                overallwatch.Start();
+                foreach (var app in applicationsToDelete)
                 {
-                    message += "could not successfully delete all apps!";
+                    foreach (var handler in handlers)
+                    {
+                        tasks.Add(Task.Run(async () =>
+                        {
+                            try
+                            {
+                                var stopwatch = new Stopwatch();
+                                stopwatch.Start();
+                                await handler.WebAppDeleteAsync(app);
+                                stopwatch.Stop();
+                                LogMessage($"Successfully deleted app {app.Name} in {stopwatch.Elapsed}");
+                            }
+                            catch (Exception ex)
+                            {
+                                lock (message)
+                                {
+                                    message.Append($"Delete App failed for {app.Name} with {Environment.NewLine}{ex.GetType()}:{ex.Message}");
+                                    var currentException = ex.InnerException;
+                                    while (currentException != null)
+                                    {
+                                        message.Append($"{Environment.NewLine}Inner: {currentException.GetType()}:{currentException.Message}");
+                                        currentException = currentException.InnerException;
+                                    }
+                                    message.AppendLine();
+                                }
+                            }
+                        }));
+                    }
                 }
-            }
+                
+                try
+                {
+                    await Task.WhenAll(tasks);
+                }
+                catch (Exception ex)
+                {
+                    message.AppendLine($"One or more delete operations failed: {ex.Message}");
+                }
 
-            if (string.IsNullOrEmpty(message) && handlers.Count > 0)
-            {
-                message = $"Successfully deleted all WebApplications in {overallwatch.Elapsed}";
-            }
-            else
-            {
-                if (applicationsToDelete.Count == 0)
+                overallwatch.Stop();
+                
+                if (string.IsNullOrEmpty(message.ToString()) && handlers.Count > 0)
                 {
-                    message = $"No application to Delete.";
+                    message.AppendLine($"Successfully deleted all WebApplications in {overallwatch.Elapsed}");
                 }
+                else
+                {
+                    if (applicationsToDelete.Count == 0)
+                    {
+                        message.AppendLine($"No application to Delete.");
+                    }
 
-                if (handlers.Count == 0)
-                {
-                    message = $"{message} No PLC.";
+                    if (handlers.Count == 0)
+                    {
+                        message.AppendLine($"{message} No PLC.");
+                    }
                 }
+                
+                var logMessages = ApplicationLogger?.LogMessages?.ToList() ?? new List<string>();
+                foreach (var logMessage in logMessages)
+                {
+                    LogMessage(logMessage, false);
+                }
+                if (ApplicationLogger != null)
+                {
+                    ApplicationLogger.LogMessages = new List<string>();
+                }
+                LogMessage(message.ToString(), true);
             }
-            this.Cursor = System.Windows.Input.Cursors.Arrow;
-            //if (!string.IsNullOrEmpty(message))
-            //System.Windows.MessageBox.Show(message.Trim());
-            var messages = ApplicationLogger.LogMessages;
-            foreach (var logMessage in messages)
+            catch (Exception ex)
             {
-                LogMessage(logMessage, false);
+                LogMessage($"Delete operation failed: {ex.Message}", true);
+                System.Windows.MessageBox.Show($"Delete operation failed: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
-            ApplicationLogger.LogMessages = new List<string>();
-            LogMessage(message, true);
+            finally
+            {
+                this.Cursor = System.Windows.Input.Cursors.Arrow;
+            }
         }
     }
 }

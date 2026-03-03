@@ -11,11 +11,29 @@ namespace Siemens.Simatic.S7.Webserver.API.WebApplicationManager.Utils
     {
         private static object _lock = new object();
 
-        public readonly LogLevel Level;
+        private LogLevel _level;
+        
+        public LogLevel Level 
+        { 
+            get
+            {
+                lock (_lock)
+                {
+                    return _level;
+                }
+            }
+            set
+            {
+                lock (_lock)
+                {
+                    _level = value;
+                }
+            }
+        }
 
         public InMemoryLogSaver(LogLevel level)
         {
-            Level = level;
+            _level = level;
             LogMessages = new List<string>();
         }
 
