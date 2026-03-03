@@ -1,12 +1,7 @@
-﻿// Copyright (c) 2025, Siemens AG
+﻿// Copyright (c) 2026, Siemens AG
 //
 // SPDX-License-Identifier: MIT
 using Siemens.Simatic.S7.Webserver.API.WebApplicationManager.CustomControls;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Siemens.Simatic.S7.Webserver.API.WebApplicationManager.Settings
 {
@@ -15,8 +10,8 @@ namespace Siemens.Simatic.S7.Webserver.API.WebApplicationManager.Settings
         private int _value;
         private string _statusText;
 
-        public int Value 
-        { 
+        public int Value
+        {
             get => _value;
             set
             {
@@ -43,8 +38,8 @@ namespace Siemens.Simatic.S7.Webserver.API.WebApplicationManager.Settings
 
         public override string ToString()
         {
-            return string.IsNullOrEmpty(StatusText) 
-                ? $"{Value}%" 
+            return string.IsNullOrEmpty(StatusText)
+                ? $"{Value}%"
                 : $"{Value}% - {StatusText}";
         }
     }

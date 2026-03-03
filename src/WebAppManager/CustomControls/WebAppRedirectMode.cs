@@ -1,18 +1,12 @@
-﻿// Copyright (c) 2025, Siemens AG
+﻿// Copyright (c) 2026, Siemens AG
 //
 // SPDX-License-Identifier: MIT
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
 namespace Webserver.Api.Gui.CustomControls
 {
     public enum WebAppRedirectMode
     {
         None = 0,
         Redirect = 1,
-        Forward = 2   
+        Forward = 2
     }
 }

@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2025, Siemens AG
+﻿// Copyright (c) 2026, Siemens AG
 //
 // SPDX-License-Identifier: MIT
 using Microsoft.Extensions.Logging;
@@ -20,7 +20,6 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
-using System.Runtime.ConstrainedExecution;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading;
@@ -28,15 +27,10 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Forms;
-using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Animation;
 using System.Windows.Threading;
 using Webserver.Api.Gui.Pages;
 using Webserver.Api.Gui.Settings;
 using Webserver.Api.Gui.WebAppManagerEvents.WebAppMangagerEventArgs;
-using static System.Windows.Forms.VisualStyles.VisualStyleElement.StartPanel;
-using static System.Windows.Forms.VisualStyles.VisualStyleElement.Window;
 
 namespace Webserver.Api.Gui
 {
@@ -72,7 +66,7 @@ namespace Webserver.Api.Gui
                 typeof(ProgressBarValue),
                 typeof(MainWindow));
 
-        
+
         public ProgressBarValue ProgressBarValue
         {
             get
@@ -85,13 +79,13 @@ namespace Webserver.Api.Gui
             {
                 //MyProgressBar.ProgressBarValue = value;
                 //SetValue(ProgressBarValueProperty, value);
-                if(MyProgressBar != null)
+                if (MyProgressBar != null)
                 {
-                    MyProgressBar.ProgressBarValue = value;   
+                    MyProgressBar.ProgressBarValue = value;
                 }
             }
         }
-        
+
 
 
         /// <summary>
@@ -121,13 +115,13 @@ namespace Webserver.Api.Gui
             InitControlSettings();
 
             DataContext = this;
-            if(LogViewer == null)
+            if (LogViewer == null)
             {
                 LogViewer = new LogViewer();
                 LogViewer.Show();
             }
 
-            if(ApplicationLogger == null)
+            if (ApplicationLogger == null)
             {
                 // Get log level from settings or use default
                 var logLevel = GetLogLevelFromSettings();
@@ -135,11 +129,11 @@ namespace Webserver.Api.Gui
             }
 
             ServiceFactory = new ApiStandardServiceFactory(ApplicationLogger);
-            
+
             // Ensure cleanup on window closing
             this.Closing += MainWindow_Closing;
         }
-        
+
         private void MainWindow_Closing(object sender, CancelEventArgs e)
         {
             // Stop and dispose timer
@@ -149,14 +143,14 @@ namespace Webserver.Api.Gui
                 _continuousDeploymentTimer.Tick -= ContinuousDeploymentTimer_Tick;
                 _continuousDeploymentTimer = null;
             }
-            
+
             // Close LogViewer if it exists
             if (LogViewer != null && !LogViewer.IsClosed)
             {
                 LogViewer.Close();
             }
         }
-        
+
         /// <summary>
         /// Parse log level from settings string to LogLevel enum
         /// </summary>
@@ -164,7 +158,7 @@ namespace Webserver.Api.Gui
         private LogLevel GetLogLevelFromSettings()
         {
             var logLevelString = ApplicationSettings?.LogLevel;
-            
+
             // Handle null or empty settings
             if (string.IsNullOrEmpty(logLevelString))
             {
@@ -197,17 +191,17 @@ namespace Webserver.Api.Gui
             if (sender is System.Windows.Controls.ComboBox comboBox && comboBox.SelectedItem is ComboBoxItem selectedItem)
             {
                 var newLogLevel = selectedItem.Content.ToString();
-                
+
                 // Update settings and save
                 if (ApplicationSettings != null && ApplicationLogger != null)
                 {
                     ApplicationSettings.LogLevel = newLogLevel;
                     SaveSettingsToJsonFile(SaveSettingsFilePath);
-                    
+
                     // Update the logger level directly instead of creating new instance
                     var logLevel = GetLogLevelFromSettings();
                     ApplicationLogger.Level = logLevel;
-                    
+
                     LogMessage($"Log level changed to: {newLogLevel}", true);
                 }
             }
@@ -220,7 +214,7 @@ namespace Webserver.Api.Gui
             MyProgressBar.ProgressBarValue = this.ProgressBarValue;
             this.PlcRackSelectionSettingsControl.SelectionSettingsAvailableItemsChanged += AvailableItemsPlcRackChanged;
             this.WebAppDeploySelectionSettingsControl.SelectionSettingsAvailableItemsChanged += AvailableItemsWebAppDeployChanged;
-            
+
             // Set the selected log level in the ComboBox
             if (LogLevelComboBox != null && !string.IsNullOrEmpty(ApplicationSettings.LogLevel))
             {
@@ -260,7 +254,7 @@ namespace Webserver.Api.Gui
             {
                 string configFile = File.ReadAllText(path);
                 ApplicationSettings = JsonConvert.DeserializeObject<WebAppManagerSettings>(configFile);
-                
+
                 // Ensure LogLevel is set (for backward compatibility with old config files)
                 if (string.IsNullOrEmpty(ApplicationSettings.LogLevel))
                 {
@@ -352,7 +346,7 @@ namespace Webserver.Api.Gui
                                          ex.InnerException.Message.Contains("Vertrauensstellung") ||
                                          ex.InnerException.Message.Contains("SSL") ||
                                          ex.InnerException.Message.Contains("TLS");
-                
+
                 if (isCertificateError)
                 {
                     MessageBoxResult result = MessageBoxResult.Yes;
@@ -360,7 +354,7 @@ namespace Webserver.Api.Gui
                     {
                         result = System.Windows.MessageBox.Show($"The plc {plc} certificate was not considered trusted! Do you want to connect anyways?", "ERR_CERT_AUTHORITY_INVALID", MessageBoxButton.YesNo);
                     }
-                    
+
                     if (result == MessageBoxResult.Yes)
                     {
                         PlcsToTrust.Add(plc);
@@ -396,13 +390,13 @@ namespace Webserver.Api.Gui
         private async Task<string> DeployOnceAsync(bool showMessageDeployed = true)
         {
             PlcsToTrust = new List<string>();
-            
+
             // Initialize progress
             await UpdateProgressAsync(0, "Initializing deployment...");
-            
+
             this.Cursor = System.Windows.Input.Cursors.Wait;
             SaveSettingsToJsonFile(SaveSettingsFilePath);
-            
+
             await UpdateProgressAsync(1, "Loading applications...");
             List<ApiWebAppData> applicationsToDeploy = new List<ApiWebAppData>();
             foreach (var entry in this.ApplicationSettings.WebAppDeploySelectionSettings.SelectedItems)
@@ -413,13 +407,13 @@ namespace Webserver.Api.Gui
                 var app = configParser.Parse();
                 applicationsToDeploy.Add(app);
             }
-            
+
             await UpdateProgressAsync(2, "Connecting to PLCs...");
             var deployers = new List<(string plc, ApiWebAppDeployer deployer, ApiHttpClientRequestHandler requestHandler)>();
             List<string> plcsToDeployTo = new List<string>();
             StringBuilder message = new StringBuilder();
             ServicePointManager.ServerCertificateValidationCallback += Certificate_Validation_Callback;
-            
+
             foreach (var entry in this.ApplicationSettings.RackSelectionSettings.SelectedItems)
             {
                 var pathToRackConfiguration = this.ApplicationSettings.RackSelectionSettings.AvailableItems.First(el => el.Value == entry).Key;
@@ -447,7 +441,7 @@ namespace Webserver.Api.Gui
                     }
                 }
             }
-            
+
             await UpdateProgressAsync(3, "Starting deployment...");
             Stopwatch overallwatch = new Stopwatch();
             overallwatch.Start();
@@ -461,7 +455,7 @@ namespace Webserver.Api.Gui
                 }
                 int progressAmount = 0;
                 int completedDeployments = 0;
-                
+
                 foreach (var app in applicationsToDeploy)
                 {
                     List<Task> tasks = new List<Task>();
@@ -490,16 +484,16 @@ namespace Webserver.Api.Gui
                                 }
                             }
                             Interlocked.Increment(ref progressAmount);
-                            
+
                             // Update progress after each deployment
                             var currentCompleted = Interlocked.Increment(ref completedDeployments);
                             var percentComplete = 20 + ((currentCompleted * 70) / overallAmount);
-                            await UpdateProgressAsync(percentComplete, 
+                            await UpdateProgressAsync(percentComplete,
                                 $"Deploying: {app.Name} ({currentCompleted}/{overallAmount})");
                         });
                         tasks.Add(myTask);
                     }
-                    
+
                     try
                     {
                         await Task.WhenAll(tasks);
@@ -509,9 +503,9 @@ namespace Webserver.Api.Gui
                         message.AppendLine($"One or more deployments failed: {ex.Message}");
                     }
                 }
-                
+
                 await UpdateProgressAsync(90, "Finishing up...");
-                
+
                 if (string.IsNullOrEmpty(message.ToString()) && applicationsToDeploy.Count > 0 && deployers.Count > 0)
                 {
                     message.AppendLine($"Successfully deployed all WebApplications in {overallwatch.Elapsed}");
@@ -545,7 +539,7 @@ namespace Webserver.Api.Gui
                     }
                 }
             }
-            
+
             this.Cursor = System.Windows.Input.Cursors.Arrow;
             var messageString = message.ToString().Trim();
             if (showMessageDeployed && deploySuccess || !deploySuccess)
@@ -553,9 +547,9 @@ namespace Webserver.Api.Gui
                 //System.Windows.MessageBox.Show(messageString);
                 ;
             }
-            
+
             var messages = ApplicationLogger?.LogMessages?.ToList() ?? new List<string>();
-            foreach(var logMessage in messages)
+            foreach (var logMessage in messages)
             {
                 LogMessage(logMessage, false);
             }
@@ -564,11 +558,11 @@ namespace Webserver.Api.Gui
                 ApplicationLogger.LogMessages = new List<string>();
             }
             LogMessage(messageString, true);
-            
+
             await UpdateProgressAsync(100, deploySuccess ? "Deployment completed successfully!" : "Deployment completed with errors");
             return messageString;
         }
-        
+
         /// <summary>
         /// Update progress bar with percentage and status text on UI thread
         /// </summary>
@@ -601,7 +595,7 @@ namespace Webserver.Api.Gui
                 SetDeploymentButtonsEnabled(true);
             }
         }
-        
+
         /// <summary>
         /// Enable/disable deployment buttons to prevent concurrent operations
         /// </summary>
@@ -654,14 +648,14 @@ namespace Webserver.Api.Gui
                         ApplicationSettings = JsonConvert.DeserializeObject<WebAppManagerSettings>(configFile);
                         message = $"Successfully loaded settings from {configFile}";
                         SaveSettingsFilePath = configFile;
-                        
+
                         // Update logger level after loading settings
                         if (ApplicationLogger != null)
                         {
                             var logLevel = GetLogLevelFromSettings();
                             ApplicationLogger.Level = logLevel;
                         }
-                        
+
                         // Update UI controls with new settings
                         if (LogLevelComboBox != null && !string.IsNullOrEmpty(ApplicationSettings.LogLevel))
                         {
@@ -745,53 +739,53 @@ namespace Webserver.Api.Gui
                 }
 
                 var workingArea = screen.WorkingArea;
-                
+
                 // Get DPI scaling factor
                 var dpiScale = GetDpiScale(window);
-                
+
                 // Calculate scaled coordinates
                 var scaledLeft = workingArea.Left / dpiScale.DpiScaleX;
                 var scaledTop = workingArea.Top / dpiScale.DpiScaleY;
                 var scaledWidth = workingArea.Width / dpiScale.DpiScaleX;
                 var scaledHeight = workingArea.Height / dpiScale.DpiScaleY;
-                
+
                 // Ensure window size is reasonable and fits on screen
                 var windowWidth = window.Width;
                 var windowHeight = window.Height;
-                
+
                 // If window size is not set or NaN, use a default size
                 if (double.IsNaN(windowWidth) || windowWidth <= 0)
                 {
                     windowWidth = Math.Min(800, scaledWidth * 0.8);
                     window.Width = windowWidth;
                 }
-                
+
                 if (double.IsNaN(windowHeight) || windowHeight <= 0)
                 {
                     windowHeight = Math.Min(600, scaledHeight * 0.8);
                     window.Height = windowHeight;
                 }
-                
+
                 // Center the window on the target screen, with some margin from edges
                 var margin = StandardValues.DefaultWindowMargin / dpiScale.DpiScaleX;
                 var left = scaledLeft + margin;
                 var top = scaledTop + margin;
-                
+
                 // Ensure the window fits completely on the screen
                 if (left + windowWidth > scaledLeft + scaledWidth)
                 {
                     left = scaledLeft + scaledWidth - windowWidth - margin;
                 }
-                
+
                 if (top + windowHeight > scaledTop + scaledHeight)
                 {
                     top = scaledTop + scaledHeight - windowHeight - margin;
                 }
-                
+
                 // Final bounds check
                 left = Math.Max(scaledLeft, left);
                 top = Math.Max(scaledTop, top);
-                
+
                 window.Left = left;
                 window.Top = top;
             }
@@ -802,7 +796,7 @@ namespace Webserver.Api.Gui
                 window.WindowStartupLocation = WindowStartupLocation.CenterScreen;
             }
         }
-        
+
         private (double DpiScaleX, double DpiScaleY) GetDpiScale(Window window)
         {
             try
@@ -810,7 +804,7 @@ namespace Webserver.Api.Gui
                 var source = PresentationSource.FromVisual(window);
                 if (source?.CompositionTarget != null)
                 {
-                    return (source.CompositionTarget.TransformToDevice.M11, 
+                    return (source.CompositionTarget.TransformToDevice.M11,
                            source.CompositionTarget.TransformToDevice.M22);
                 }
             }
@@ -818,7 +812,7 @@ namespace Webserver.Api.Gui
             {
                 // Fallback if we can't get DPI info
             }
-            
+
             // Default DPI scaling (96 DPI = 1.0 scale)
             return (1.0, 1.0);
         }
@@ -974,29 +968,29 @@ namespace Webserver.Api.Gui
 
         private void LogMessage(string message, bool performLog = false)
         {
-            if(performLog)
+            if (performLog)
             {
                 lock (LogLock)
                 {
-                    foreach(var messageToBeLogged in messagesToBeLogged)
+                    foreach (var messageToBeLogged in messagesToBeLogged)
                     {
                         LogViewer?.LogEntries?.Add(new LogEntry() { DateTime = DateTime.Now, Index = currentIndex, Message = messageToBeLogged });
                         currentIndex++;
                     }
-                    
+
                     // Thread-safe access to ApplicationLogger.LogMessages
                     var logMessages = ApplicationLogger?.LogMessages?.ToList() ?? new List<string>();
-                    foreach(var logMessage in logMessages)
+                    foreach (var logMessage in logMessages)
                     {
                         LogViewer?.LogEntries?.Add(new LogEntry() { Index = currentIndex, Message = logMessage });
                         currentIndex++;
                     }
-                    
+
                     if (ApplicationLogger != null)
                     {
                         ApplicationLogger.LogMessages = new List<string>();
                     }
-                    
+
                     messagesToBeLogged = new List<string>();
                     LogViewer?.LogEntries?.Add(new LogEntry() { DateTime = DateTime.Now, Index = currentIndex, Message = message });
                     currentIndex++;
@@ -1008,7 +1002,7 @@ namespace Webserver.Api.Gui
                 {
                     messagesToBeLogged.Add(message);
                 }
-            }    
+            }
         }
 
         private async void StartContinuousDeploymentBtn_Click(object sender, RoutedEventArgs e)
@@ -1027,7 +1021,7 @@ namespace Webserver.Api.Gui
                 _continuousDeploymentTimer.Tick += ContinuousDeploymentTimer_Tick;
                 _continuousDeploymentTimer.Start();
                 LogMessage($"Started continuous deployment in interval: {_continuousDeploymentTimer.Interval}!", true);
-                
+
                 // Enable stop button, keep deploy buttons disabled during continuous deployment
                 if (StopContinuousDeploymentBtn != null)
                     StopContinuousDeploymentBtn.IsEnabled = true;
@@ -1068,7 +1062,7 @@ namespace Webserver.Api.Gui
                     var app = configParser.Parse();
                     applicationsToDelete.Add(app);
                 }
-                
+
                 await UpdateProgressAsync(10, "Connecting to PLCs...");
                 List<ApiHttpClientRequestHandler> handlers = new List<ApiHttpClientRequestHandler>();
                 List<string> plcsToDeleteWebAppsFrom = new List<string>();
@@ -1076,7 +1070,7 @@ namespace Webserver.Api.Gui
                 StringBuilder message = new StringBuilder();
                 PlcsToTrust = new List<string>();
                 ServicePointManager.ServerCertificateValidationCallback += Certificate_Validation_Callback;
-                
+
                 foreach (var entry in this.ApplicationSettings.RackSelectionSettings.SelectedItems)
                 {
                     var pathToRackConfiguration = this.ApplicationSettings.RackSelectionSettings.AvailableItems.First(el => el.Value == entry).Key;
@@ -1105,13 +1099,13 @@ namespace Webserver.Api.Gui
                         }
                     }
                 }
-                
+
                 Stopwatch overallwatch = new Stopwatch();
                 overallwatch.Start();
-                
+
                 int totalOperations = applicationsToDelete.Count * handlers.Count;
                 int completedOperations = 0;
-                
+
                 foreach (var app in applicationsToDelete)
                 {
                     foreach (var handler in handlers)
@@ -1125,10 +1119,10 @@ namespace Webserver.Api.Gui
                                 await handler.WebAppDeleteAsync(app);
                                 stopwatch.Stop();
                                 LogMessage($"Successfully deleted app {app.Name} in {stopwatch.Elapsed}");
-                                
+
                                 var current = Interlocked.Increment(ref completedOperations);
                                 var percentComplete = 20 + ((current * 70) / Math.Max(totalOperations, 1));
-                                await UpdateProgressAsync(percentComplete,  $"Deleting: {app.Name} ({current}/{totalOperations})");
+                                await UpdateProgressAsync(percentComplete, $"Deleting: {app.Name} ({current}/{totalOperations})");
                             }
                             catch (Exception ex)
                             {
@@ -1147,7 +1141,7 @@ namespace Webserver.Api.Gui
                         }));
                     }
                 }
-                
+
                 try
                 {
                     await Task.WhenAll(tasks);
@@ -1158,9 +1152,9 @@ namespace Webserver.Api.Gui
                 }
 
                 overallwatch.Stop();
-                
+
                 await UpdateProgressAsync(95, "Finalizing...");
-                
+
                 if (string.IsNullOrEmpty(message.ToString()) && handlers.Count > 0)
                 {
                     message.AppendLine($"Successfully deleted all WebApplications in {overallwatch.Elapsed}");
@@ -1177,7 +1171,7 @@ namespace Webserver.Api.Gui
                         message.AppendLine($"{message} No PLC.");
                     }
                 }
-                
+
                 var logMessages = ApplicationLogger?.LogMessages?.ToList() ?? new List<string>();
                 foreach (var logMessage in logMessages)
                 {
@@ -1188,7 +1182,7 @@ namespace Webserver.Api.Gui
                     ApplicationLogger.LogMessages = new List<string>();
                 }
                 LogMessage(message.ToString(), true);
-                
+
                 await UpdateProgressAsync(100, "Delete operation completed");
             }
             catch (Exception ex)
