@@ -396,9 +396,14 @@ namespace Webserver.Api.Gui
         private async Task<string> DeployOnceAsync(bool showMessageDeployed = true)
         {
             PlcsToTrust = new List<string>();
-            ProgressBarValue = new ProgressBarValue(0);
+            
+            // Initialize progress
+            await UpdateProgressAsync(0, "Initializing deployment...");
+            
             this.Cursor = System.Windows.Input.Cursors.Wait;
             SaveSettingsToJsonFile(SaveSettingsFilePath);
+            
+            await UpdateProgressAsync(1, "Loading applications...");
             List<ApiWebAppData> applicationsToDeploy = new List<ApiWebAppData>();
             foreach (var entry in this.ApplicationSettings.WebAppDeploySelectionSettings.SelectedItems)
             {
@@ -408,10 +413,13 @@ namespace Webserver.Api.Gui
                 var app = configParser.Parse();
                 applicationsToDeploy.Add(app);
             }
+            
+            await UpdateProgressAsync(2, "Connecting to PLCs...");
             var deployers = new List<(string plc, ApiWebAppDeployer deployer, ApiHttpClientRequestHandler requestHandler)>();
             List<string> plcsToDeployTo = new List<string>();
             StringBuilder message = new StringBuilder();
             ServicePointManager.ServerCertificateValidationCallback += Certificate_Validation_Callback;
+            
             foreach (var entry in this.ApplicationSettings.RackSelectionSettings.SelectedItems)
             {
                 var pathToRackConfiguration = this.ApplicationSettings.RackSelectionSettings.AvailableItems.First(el => el.Value == entry).Key;
@@ -439,6 +447,8 @@ namespace Webserver.Api.Gui
                     }
                 }
             }
+            
+            await UpdateProgressAsync(3, "Starting deployment...");
             Stopwatch overallwatch = new Stopwatch();
             overallwatch.Start();
             bool deploySuccess = false;
@@ -450,6 +460,8 @@ namespace Webserver.Api.Gui
                     overallAmount++;
                 }
                 int progressAmount = 0;
+                int completedDeployments = 0;
+                
                 foreach (var app in applicationsToDeploy)
                 {
                     List<Task> tasks = new List<Task>();
@@ -478,6 +490,12 @@ namespace Webserver.Api.Gui
                                 }
                             }
                             Interlocked.Increment(ref progressAmount);
+                            
+                            // Update progress after each deployment
+                            var currentCompleted = Interlocked.Increment(ref completedDeployments);
+                            var percentComplete = 20 + ((currentCompleted * 70) / overallAmount);
+                            await UpdateProgressAsync(percentComplete, 
+                                $"Deploying: {app.Name} ({currentCompleted}/{overallAmount})");
                         });
                         tasks.Add(myTask);
                     }
@@ -490,18 +508,10 @@ namespace Webserver.Api.Gui
                     {
                         message.AppendLine($"One or more deployments failed: {ex.Message}");
                     }
-                    
-                    try
-                    {
-                        var nextValue = progressAmount * 100 / overallAmount;
-                        ProgressBarValue = new ProgressBarValue(nextValue);
-                        MyProgressBar.pbStatus.Value = nextValue;
-                    }
-                    catch (Exception ex2)
-                    {
-                        LogMessage($"{ex2.GetType()}: {ex2.Message}");
-                    }
                 }
+                
+                await UpdateProgressAsync(90, "Finishing up...");
+                
                 if (string.IsNullOrEmpty(message.ToString()) && applicationsToDeploy.Count > 0 && deployers.Count > 0)
                 {
                     message.AppendLine($"Successfully deployed all WebApplications in {overallwatch.Elapsed}");
@@ -521,6 +531,7 @@ namespace Webserver.Api.Gui
             }
             finally
             {
+                await UpdateProgressAsync(95, "Logging out...");
                 foreach (var handler in deployers)
                 {
                     try
@@ -534,8 +545,8 @@ namespace Webserver.Api.Gui
                     }
                 }
             }
+            
             this.Cursor = System.Windows.Input.Cursors.Arrow;
-            // if not successfull deploy or show success deploy message -> show message
             var messageString = message.ToString().Trim();
             if (showMessageDeployed && deploySuccess || !deploySuccess)
             {
@@ -553,14 +564,31 @@ namespace Webserver.Api.Gui
                 ApplicationLogger.LogMessages = new List<string>();
             }
             LogMessage(messageString, true);
-            ProgressBarValue = new ProgressBarValue(100);
+            
+            await UpdateProgressAsync(100, deploySuccess ? "Deployment completed successfully!" : "Deployment completed with errors");
             return messageString;
+        }
+        
+        /// <summary>
+        /// Update progress bar with percentage and status text on UI thread
+        /// </summary>
+        private async Task UpdateProgressAsync(int percentage, string statusText)
+        {
+            await Dispatcher.InvokeAsync(() =>
+            {
+                ProgressBarValue = new ProgressBarValue(Math.Min(percentage, 100), statusText);
+                if (MyProgressBar != null)
+                {
+                    MyProgressBar.ProgressBarValue = ProgressBarValue;
+                }
+            });
         }
 
         private async void StartDeploymentBtnAndCreateJsonConfigFile_Click(object sender, RoutedEventArgs e)
         {
             try
             {
+                SetDeploymentButtonsEnabled(false);
                 await DeployOnceAsync();
             }
             catch (Exception ex)
@@ -568,8 +596,24 @@ namespace Webserver.Api.Gui
                 LogMessage($"Deployment failed: {ex.Message}", true);
                 System.Windows.MessageBox.Show($"Deployment failed: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
+            finally
+            {
+                SetDeploymentButtonsEnabled(true);
+            }
         }
-
+        
+        /// <summary>
+        /// Enable/disable deployment buttons to prevent concurrent operations
+        /// </summary>
+        private void SetDeploymentButtonsEnabled(bool enabled)
+        {
+            if (StartDeploymentBtn != null)
+                StartDeploymentBtn.IsEnabled = enabled;
+            if (StartContinuousDeploymentBtn != null)
+                StartContinuousDeploymentBtn.IsEnabled = enabled;
+            if (StartDeleteBtn != null)
+                StartDeleteBtn.IsEnabled = enabled;
+        }
 
         #region File
         private void SaveSettingsAsMenuItem_Click(object sender, RoutedEventArgs e)
@@ -971,6 +1015,7 @@ namespace Webserver.Api.Gui
         {
             try
             {
+                SetDeploymentButtonsEnabled(false);
                 await DeployOnceAsync();
                 if (_continuousDeploymentTimer != null)
                 {
@@ -982,11 +1027,16 @@ namespace Webserver.Api.Gui
                 _continuousDeploymentTimer.Tick += ContinuousDeploymentTimer_Tick;
                 _continuousDeploymentTimer.Start();
                 LogMessage($"Started continuous deployment in interval: {_continuousDeploymentTimer.Interval}!", true);
+                
+                // Enable stop button, keep deploy buttons disabled during continuous deployment
+                if (StopContinuousDeploymentBtn != null)
+                    StopContinuousDeploymentBtn.IsEnabled = true;
             }
             catch (Exception ex)
             {
                 LogMessage($"Failed to start continuous deployment: {ex.Message}", true);
                 System.Windows.MessageBox.Show($"Failed to start continuous deployment: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                SetDeploymentButtonsEnabled(true);
             }
         }
 
@@ -999,14 +1049,16 @@ namespace Webserver.Api.Gui
                 _continuousDeploymentTimer = null;
             }
             LogMessage("Stopped continuous deployment!", true);
+            SetDeploymentButtonsEnabled(true);
         }
 
         private async void StartDeleteBtn_Click(object sender, RoutedEventArgs e)
         {
             try
             {
+                SetDeploymentButtonsEnabled(false);
                 this.Cursor = System.Windows.Input.Cursors.Wait;
-                SaveSettingsToJsonFile(SaveSettingsFilePath);
+                await UpdateProgressAsync(0, "Starting delete operation...");
                 List<ApiWebAppData> applicationsToDelete = new List<ApiWebAppData>();
                 foreach (var entry in this.ApplicationSettings.WebAppDeploySelectionSettings.SelectedItems)
                 {
@@ -1016,12 +1068,15 @@ namespace Webserver.Api.Gui
                     var app = configParser.Parse();
                     applicationsToDelete.Add(app);
                 }
+                
+                await UpdateProgressAsync(10, "Connecting to PLCs...");
                 List<ApiHttpClientRequestHandler> handlers = new List<ApiHttpClientRequestHandler>();
                 List<string> plcsToDeleteWebAppsFrom = new List<string>();
                 List<Task> tasks = new List<Task>();
                 StringBuilder message = new StringBuilder();
                 PlcsToTrust = new List<string>();
                 ServicePointManager.ServerCertificateValidationCallback += Certificate_Validation_Callback;
+                
                 foreach (var entry in this.ApplicationSettings.RackSelectionSettings.SelectedItems)
                 {
                     var pathToRackConfiguration = this.ApplicationSettings.RackSelectionSettings.AvailableItems.First(el => el.Value == entry).Key;
@@ -1050,8 +1105,13 @@ namespace Webserver.Api.Gui
                         }
                     }
                 }
+                
                 Stopwatch overallwatch = new Stopwatch();
                 overallwatch.Start();
+                
+                int totalOperations = applicationsToDelete.Count * handlers.Count;
+                int completedOperations = 0;
+                
                 foreach (var app in applicationsToDelete)
                 {
                     foreach (var handler in handlers)
@@ -1065,6 +1125,10 @@ namespace Webserver.Api.Gui
                                 await handler.WebAppDeleteAsync(app);
                                 stopwatch.Stop();
                                 LogMessage($"Successfully deleted app {app.Name} in {stopwatch.Elapsed}");
+                                
+                                var current = Interlocked.Increment(ref completedOperations);
+                                var percentComplete = 20 + ((current * 70) / Math.Max(totalOperations, 1));
+                                await UpdateProgressAsync(percentComplete,  $"Deleting: {app.Name} ({current}/{totalOperations})");
                             }
                             catch (Exception ex)
                             {
@@ -1095,6 +1159,8 @@ namespace Webserver.Api.Gui
 
                 overallwatch.Stop();
                 
+                await UpdateProgressAsync(95, "Finalizing...");
+                
                 if (string.IsNullOrEmpty(message.ToString()) && handlers.Count > 0)
                 {
                     message.AppendLine($"Successfully deleted all WebApplications in {overallwatch.Elapsed}");
@@ -1122,15 +1188,19 @@ namespace Webserver.Api.Gui
                     ApplicationLogger.LogMessages = new List<string>();
                 }
                 LogMessage(message.ToString(), true);
+                
+                await UpdateProgressAsync(100, "Delete operation completed");
             }
             catch (Exception ex)
             {
                 LogMessage($"Delete operation failed: {ex.Message}", true);
+                await UpdateProgressAsync(0, "Delete operation failed");
                 System.Windows.MessageBox.Show($"Delete operation failed: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
             finally
             {
                 this.Cursor = System.Windows.Input.Cursors.Arrow;
+                SetDeploymentButtonsEnabled(true);
             }
         }
     }

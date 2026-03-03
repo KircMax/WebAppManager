@@ -20,10 +20,7 @@ namespace Siemens.Simatic.S7.Webserver.API.WebApplicationManager.CustomControls
 
         public event PropertyChangedEventHandler PropertyChanged;
 
-        private ProgressBarValue _progressBarValue
-        {
-            get;set;
-        }
+        private ProgressBarValue _progressBarValue;
 
         public ProgressBarValue ProgressBarValue
         {
@@ -34,13 +31,18 @@ namespace Siemens.Simatic.S7.Webserver.API.WebApplicationManager.CustomControls
             set
             {
                 _progressBarValue = value;
-                pbStatus.Value = value?.Value ?? 0;
+                if (pbStatus != null)
+                {
+                    pbStatus.Value = value?.Value ?? 0;
+                }
                 PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ProgressBarValue)));
             }
         }
+
         public ProgressBarWithTextControl()
         {
             InitializeComponent();
+            DataContext = this;
         }
     }
 }
