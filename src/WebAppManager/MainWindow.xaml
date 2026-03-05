@@ -13,8 +13,8 @@
         xmlns:local="clr-namespace:Webserver.Api.Gui"
         xmlns:CustomControls="clr-namespace:Webserver.Api.Gui.CustomControls" xmlns:customcontrols="clr-namespace:Siemens.Simatic.S7.Webserver.API.WebApplicationManager.CustomControls"
         mc:Ignorable="d"
-        Height="860" Width="980"
-        MinHeight="820" MinWidth="900">
+        Height="980" Width="980"
+        MinHeight="940" MinWidth="900">
     <DockPanel>
         <Menu DockPanel.Dock="Top" FontSize="12" x:Name="MenuElement">
             <MenuItem Header="_File">
@@ -43,7 +43,7 @@
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" /> <!-- Added row definition -->
+                <RowDefinition Height="*" />
             </Grid.RowDefinitions>
             <Button Grid.Column="0" Grid.Row="0" Margin="10,10,10,0"  Name="WebAppConfigCreatorWindowCreator" Click="WebAppConfigCreatorWindowCreator_Click">Edit WebApplication(s) or create config</Button>
             <TextBlock Grid.Column="1" Grid.Row="0" Margin="10,10,10,0">Add existing configuration file(s)</TextBlock>
@@ -93,17 +93,18 @@
                 </ComboBox>
             </GroupBox>
 
-            <!--
-            <customcontrols:LogViewer x:Name="ApplicationLogViewer" Grid.ColumnSpan="5" Grid.Row="7" Height="80">
-
-            </customcontrols:LogViewer>-->
-
             <customcontrols:ProgressBarWithTextControl 
                 IsEnabled="true"
                 Grid.ColumnSpan="4" Grid.Row="8" x:Name="MyProgressBar" 
                 Margin="10,10,10,10"
-                ProgressBarValue="{Binding ElementName=this,Path=ProgressBarValue,Mode=TwoWay,UpdateSourceTrigger=PropertyChanged}"
-                                                       ></customcontrols:ProgressBarWithTextControl>
+                ProgressBarValue="{Binding ElementName=this,Path=ProgressBarValue,Mode=TwoWay,UpdateSourceTrigger=PropertyChanged}">
+</customcontrols:ProgressBarWithTextControl>
+
+<customcontrols:LogViewer x:Name="ApplicationLogViewer"
+                          Grid.ColumnSpan="4"
+                          Grid.Row="9"
+                          Margin="10,0,10,10"
+                          MinHeight="180" />
         </Grid>
     </DockPanel>
 </Window>

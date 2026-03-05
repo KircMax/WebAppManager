@@ -45,19 +45,15 @@ namespace Siemens.Simatic.S7.Webserver.API.WebApplicationManager.CustomControls
     /// <summary>
     /// https://stackoverflow.com/questions/16743804/implementing-a-log-viewer-with-wpf
     /// </summary>
-    public partial class LogViewer : Window
+    public partial class LogViewer : UserControl
     {
         public ObservableCollection<LogEntry> LogEntries { get; set; }
-
-        public bool IsClosed { get; private set; }
 
         public LogViewer()
         {
             InitializeComponent();
 
             DataContext = LogEntries = new ObservableCollection<LogEntry>();
-
-            this.Closed += (s, e) => IsClosed = true;
         }
 
         private bool AutoScroll = true;

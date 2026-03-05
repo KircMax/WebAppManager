@@ -40,7 +40,6 @@ namespace Webserver.Api.Gui
     public partial class MainWindow : Window
     {
         private string SaveSettingsFilePath;
-        private bool _keepLogViewerOpenOnClose;
 
         public static readonly DependencyProperty ApplicationSettingsProperty =
             DependencyProperty.Register("ApplicationSettings",
@@ -99,7 +98,7 @@ namespace Webserver.Api.Gui
             }
         }
 
-        public static LogViewer LogViewer { get; set; }
+        public static LogViewer ApplicationLogViewerControl { get; set; }
 
         public static InMemoryLogSaver ApplicationLogger { get; set; }
 
@@ -114,12 +113,7 @@ namespace Webserver.Api.Gui
             InitControlSettings();
 
             DataContext = this;
-            if (LogViewer == null)
-            {
-                LogViewer = new LogViewer();
-                LogViewer.Show();
-            }
-
+            ApplicationLogViewerControl = ApplicationLogViewer;
             if (ApplicationLogger == null)
             {
                 // Get log level from settings or use default
@@ -141,12 +135,6 @@ namespace Webserver.Api.Gui
                 _continuousDeploymentTimer.Stop();
                 _continuousDeploymentTimer.Tick -= ContinuousDeploymentTimer_Tick;
                 _continuousDeploymentTimer = null;
-            }
-
-            // Close LogViewer if it exists and this is a real application exit
-            if (!_keepLogViewerOpenOnClose && LogViewer != null && !LogViewer.IsClosed)
-            {
-                LogViewer.Close();
             }
         }
 
@@ -710,7 +698,6 @@ namespace Webserver.Api.Gui
             WebAppConfigCreatorWindow webAppConfigCreatorWindow = new WebAppConfigCreatorWindow();
             //webAppConfigCreatorWindow.Owner = this;
             SetWindowScreen(webAppConfigCreatorWindow, GetWindowScreen(App.Current.MainWindow));
-            _keepLogViewerOpenOnClose = true;
             webAppConfigCreatorWindow.Show();
             this.Close();
         }
@@ -720,7 +707,6 @@ namespace Webserver.Api.Gui
             PlcRackConfigCreatorWindow plcRackConfigCreatorWindow = new PlcRackConfigCreatorWindow();
             //plcRackConfigCreatorWindow.Owner = this;
             SetWindowScreen(plcRackConfigCreatorWindow, GetWindowScreen(App.Current.MainWindow));
-            _keepLogViewerOpenOnClose = true;
             plcRackConfigCreatorWindow.Show();
             this.Close();
         }
@@ -975,7 +961,7 @@ namespace Webserver.Api.Gui
                 {
                     foreach (var messageToBeLogged in messagesToBeLogged)
                     {
-                        LogViewer?.LogEntries?.Add(new LogEntry() { DateTime = DateTime.Now, Index = currentIndex, Message = messageToBeLogged });
+                        ApplicationLogViewerControl?.LogEntries?.Add(new LogEntry() { DateTime = DateTime.Now, Index = currentIndex, Message = messageToBeLogged });
                         currentIndex++;
                     }
 
@@ -983,7 +969,7 @@ namespace Webserver.Api.Gui
                     var logMessages = ApplicationLogger?.LogMessages?.ToList() ?? new List<string>();
                     foreach (var logMessage in logMessages)
                     {
-                        LogViewer?.LogEntries?.Add(new LogEntry() { Index = currentIndex, Message = logMessage });
+                        ApplicationLogViewerControl?.LogEntries?.Add(new LogEntry() { Index = currentIndex, Message = logMessage });
                         currentIndex++;
                     }
 
@@ -993,7 +979,7 @@ namespace Webserver.Api.Gui
                     }
 
                     messagesToBeLogged = new List<string>();
-                    LogViewer?.LogEntries?.Add(new LogEntry() { DateTime = DateTime.Now, Index = currentIndex, Message = message });
+                    ApplicationLogViewerControl?.LogEntries?.Add(new LogEntry() { DateTime = DateTime.Now, Index = currentIndex, Message = message });
                     currentIndex++;
                 }
             }
