@@ -4,6 +4,7 @@
     // SPDX-License-Identifier: MIT
 -->
     <Window x:Class="Webserver.Api.Gui.MainWindow"
+        x:Name="this"
         WindowStartupLocation="CenterOwner"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
