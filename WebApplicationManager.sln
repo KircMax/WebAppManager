@@ -42,7 +42,8 @@ Global
 		{03B9768A-7B64-46C2-B10F-25FAC01E351A}.Release|ARM64.Build.0 = Release|ARM64
 		{03B9768A-7B64-46C2-B10F-25FAC01E351A}.Release|x64.ActiveCfg = Release|x64
 		{03B9768A-7B64-46C2-B10F-25FAC01E351A}.Release|x64.Build.0 = Release|x64
-		{03B9768A-7B64-46C2-B10F-25FAC01E351A}.Release|x86.ActiveCfg = Release|ARM32
+		{03B9768A-7B64-46C2-B10F-25FAC01E351A}.Release|x86.ActiveCfg = Release|x86
+		{03B9768A-7B64-46C2-B10F-25FAC01E351A}.Release|x86.Build.0 = Release|x86
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
