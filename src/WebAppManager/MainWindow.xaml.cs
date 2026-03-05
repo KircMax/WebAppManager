@@ -39,9 +39,8 @@ namespace Webserver.Api.Gui
     /// </summary>
     public partial class MainWindow : Window
     {
-
         private string SaveSettingsFilePath;
-
+        private bool _keepLogViewerOpenOnClose;
 
         public static readonly DependencyProperty ApplicationSettingsProperty =
             DependencyProperty.Register("ApplicationSettings",
@@ -144,8 +143,8 @@ namespace Webserver.Api.Gui
                 _continuousDeploymentTimer = null;
             }
 
-            // Close LogViewer if it exists
-            if (LogViewer != null && !LogViewer.IsClosed)
+            // Close LogViewer if it exists and this is a real application exit
+            if (!_keepLogViewerOpenOnClose && LogViewer != null && !LogViewer.IsClosed)
             {
                 LogViewer.Close();
             }
@@ -711,6 +710,7 @@ namespace Webserver.Api.Gui
             WebAppConfigCreatorWindow webAppConfigCreatorWindow = new WebAppConfigCreatorWindow();
             //webAppConfigCreatorWindow.Owner = this;
             SetWindowScreen(webAppConfigCreatorWindow, GetWindowScreen(App.Current.MainWindow));
+            _keepLogViewerOpenOnClose = true;
             webAppConfigCreatorWindow.Show();
             this.Close();
         }
@@ -720,6 +720,7 @@ namespace Webserver.Api.Gui
             PlcRackConfigCreatorWindow plcRackConfigCreatorWindow = new PlcRackConfigCreatorWindow();
             //plcRackConfigCreatorWindow.Owner = this;
             SetWindowScreen(plcRackConfigCreatorWindow, GetWindowScreen(App.Current.MainWindow));
+            _keepLogViewerOpenOnClose = true;
             plcRackConfigCreatorWindow.Show();
             this.Close();
         }
