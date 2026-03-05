@@ -66,6 +66,6 @@
     
     <!-- Unchanged Compatible Packages -->
     <PackageReference Include="MimeMapping" Version="4.0.0" />
-    <PackageReference Include="Siemens.Simatic.S7.Webserver.API" Version="3.3.27" />
+    <PackageReference Include="Siemens.Simatic.S7.Webserver.API" Version="3.3.28" />
   </ItemGroup>
 </Project>
