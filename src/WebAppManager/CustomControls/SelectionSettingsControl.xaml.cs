@@ -1,20 +1,10 @@
-﻿// Copyright (c) 2025, Siemens AG
+﻿// Copyright (c) 2026, Siemens AG
 //
 // SPDX-License-Identifier: MIT
-using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
-using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
-using System.Windows.Shapes;
 using Webserver.Api.Gui.Settings;
 using Webserver.Api.Gui.WebAppManagerEvents;
 
@@ -57,7 +47,7 @@ namespace Webserver.Api.Gui.CustomControls
                 Settings.SelectedItems.Add(item);
             }
             RemoveDisplayControls();
-            
+
             CheckValidity();
         }
 
@@ -75,7 +65,7 @@ namespace Webserver.Api.Gui.CustomControls
                 }
             }
             RemoveDisplayControls();
-            
+
             CheckValidity();
         }
 
@@ -85,7 +75,7 @@ namespace Webserver.Api.Gui.CustomControls
             if (selectedIndicies.Count > 0)
             {
                 List<string> items = new List<string>();
-                foreach(var selectedIndex in selectedIndicies)
+                foreach (var selectedIndex in selectedIndicies)
                 {
                     string item = Settings.SelectedItems[selectedIndex];
                     items.Add(item);
@@ -103,7 +93,7 @@ namespace Webserver.Api.Gui.CustomControls
         {
             Settings.SelectedItems.Clear();
             RemoveDisplayControls();
-            
+
             CheckValidity();
         }
 
@@ -171,9 +161,9 @@ namespace Webserver.Api.Gui.CustomControls
         private void DeleteSelectedBtn_Click(object sender, RoutedEventArgs e)
         {
             var selectedIndicies = GetSelectedIndicies(SelectedItemsSelect);
-            if (SelectedItemsSelect.SelectedItems.Count == 0) {selectedIndicies = GetSelectedIndicies(AvailableItemsSelect);}
-            List<KeyValuePair<string,string>> deletedItems = new List<KeyValuePair<string, string>>();
-            
+            if (SelectedItemsSelect.SelectedItems.Count == 0) { selectedIndicies = GetSelectedIndicies(AvailableItemsSelect); }
+            List<KeyValuePair<string, string>> deletedItems = new List<KeyValuePair<string, string>>();
+
             if (selectedIndicies.Count > 0)
             {
                 List<string> items = new List<string>();

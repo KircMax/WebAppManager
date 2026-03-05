@@ -1,22 +1,46 @@
-﻿using Siemens.Simatic.S7.Webserver.API.WebApplicationManager.CustomControls;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿// Copyright (c) 2026, Siemens AG
+//
+// SPDX-License-Identifier: MIT
+using Siemens.Simatic.S7.Webserver.API.WebApplicationManager.CustomControls;
 
 namespace Siemens.Simatic.S7.Webserver.API.WebApplicationManager.Settings
 {
     public class ProgressBarValue : PropertyChangedBase
     {
-        public int Value { get; set; }
-        public ProgressBarValue(int value)
+        private int _value;
+        private string _statusText;
+
+        public int Value
+        {
+            get => _value;
+            set
+            {
+                _value = value;
+                OnPropertyChanged(nameof(Value));
+            }
+        }
+
+        public string StatusText
+        {
+            get => _statusText;
+            set
+            {
+                _statusText = value;
+                OnPropertyChanged(nameof(StatusText));
+            }
+        }
+
+        public ProgressBarValue(int value, string statusText = "")
         {
             Value = value;
+            StatusText = statusText;
         }
+
         public override string ToString()
         {
-            return $"{Value}%";
+            return string.IsNullOrEmpty(StatusText)
+                ? $"{Value}%"
+                : $"{Value}% - {StatusText}";
         }
     }
 }

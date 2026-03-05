@@ -1,23 +1,9 @@
-﻿// Copyright (c) 2025, Siemens AG
+﻿// Copyright (c) 2026, Siemens AG
 //
 // SPDX-License-Identifier: MIT
-using Siemens.Simatic.S7.Webserver.API.WebApplicationManager.CustomControls;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
-using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
-using System.Windows.Shapes;
 using Webserver.Api.Gui.Settings;
-using Webserver.Api.Gui.WebAppManagerEvents;
 
 namespace Webserver.Api.Gui.CustomControls
 {
@@ -49,31 +35,31 @@ namespace Webserver.Api.Gui.CustomControls
 
         public void UpdateRadioButtonValuesGui()
         {
-            if(this.Settings.StateRadioBtn == WebAppState.Enabled)
+            if (this.Settings.StateRadioBtn == WebAppState.Enabled)
             {
                 this.WebAppEnabledButton.IsChecked = true;
             }
-            else if(this.Settings.StateRadioBtn == WebAppState.Disabled)
+            else if (this.Settings.StateRadioBtn == WebAppState.Disabled)
             {
                 this.WebAppDisabledButton.IsChecked = true;
             }
-            if(this.Settings.TypeRadioBtn == WebAppType.User)
+            if (this.Settings.TypeRadioBtn == WebAppType.User)
             {
                 this.WebAppStateUserButton.IsChecked = true;
             }
-            else if(this.Settings.TypeRadioBtn == WebAppType.VoT)
+            else if (this.Settings.TypeRadioBtn == WebAppType.VoT)
             {
                 this.WebAppStateVoTButton.IsChecked = true;
             }
-            if(this.Settings.RedirectRadioBtn == WebAppRedirectMode.Redirect)
+            if (this.Settings.RedirectRadioBtn == WebAppRedirectMode.Redirect)
             {
                 this.WebAppRedirectModeRedirectButton.IsChecked = true;
             }
-            else if(this.Settings.RedirectRadioBtn == WebAppRedirectMode.Forward)
+            else if (this.Settings.RedirectRadioBtn == WebAppRedirectMode.Forward)
             {
                 this.WebAppRedirectModeForwardButton.IsChecked = true;
             }
-            else if(this.Settings.RedirectRadioBtn == WebAppRedirectMode.None)
+            else if (this.Settings.RedirectRadioBtn == WebAppRedirectMode.None)
             {
                 this.WebAppRedirectModeNoneButton.IsChecked = true;
             }

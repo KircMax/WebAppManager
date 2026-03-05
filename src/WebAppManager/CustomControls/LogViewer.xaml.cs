@@ -1,27 +1,16 @@
-﻿// Copyright (c) 2025, Siemens AG
+﻿// Copyright (c) 2026, Siemens AG
 //
 // SPDX-License-Identifier: MIT
 
 // Portions of this file are inspired by or adapted from:
 // https://stackoverflow.com/questions/16743804/implementing-a-log-viewer-with-wpf
 // Credit: Stack Overflow community
-using Microsoft.Extensions.Logging.Abstractions;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
-using System.Linq;
-using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
-using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Shapes;
 
 namespace Siemens.Simatic.S7.Webserver.API.WebApplicationManager.CustomControls
 {
@@ -56,7 +45,7 @@ namespace Siemens.Simatic.S7.Webserver.API.WebApplicationManager.CustomControls
     /// <summary>
     /// https://stackoverflow.com/questions/16743804/implementing-a-log-viewer-with-wpf
     /// </summary>
-    public partial class LogViewer : Window
+    public partial class LogViewer : UserControl
     {
         public ObservableCollection<LogEntry> LogEntries { get; set; }
 

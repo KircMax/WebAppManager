@@ -1,9 +1,10 @@
 ﻿<!--
-    // Copyright (c) 2022, Siemens AG
+    // Copyright (c) 2026, Siemens AG
     //
     // SPDX-License-Identifier: MIT
 -->
     <Window x:Class="Webserver.Api.Gui.MainWindow"
+        x:Name="this"
         WindowStartupLocation="CenterOwner"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -12,8 +13,8 @@
         xmlns:local="clr-namespace:Webserver.Api.Gui"
         xmlns:CustomControls="clr-namespace:Webserver.Api.Gui.CustomControls" xmlns:customcontrols="clr-namespace:Siemens.Simatic.S7.Webserver.API.WebApplicationManager.CustomControls"
         mc:Ignorable="d"
-        Height="740" Width="800"
-        MinHeight="740" MinWidth="800">
+        Height="980" Width="980"
+        MinHeight="940" MinWidth="900">
     <DockPanel>
         <Menu DockPanel.Dock="Top" FontSize="12" x:Name="MenuElement">
             <MenuItem Header="_File">
@@ -42,7 +43,7 @@
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" /> <!-- Added row definition -->
+                <RowDefinition Height="*" />
             </Grid.RowDefinitions>
             <Button Grid.Column="0" Grid.Row="0" Margin="10,10,10,0"  Name="WebAppConfigCreatorWindowCreator" Click="WebAppConfigCreatorWindowCreator_Click">Edit WebApplication(s) or create config</Button>
             <TextBlock Grid.Column="1" Grid.Row="0" Margin="10,10,10,0">Add existing configuration file(s)</TextBlock>
@@ -77,13 +78,9 @@
                 <Button Name="StartDeleteBtn" Click="StartDeleteBtn_Click">Delete WebApps</Button>
             </GroupBox>
 
-            <!--
-            <customcontrols:LogViewer x:Name="ApplicationLogViewer" Grid.ColumnSpan="5" Grid.Row="7" Height="80">
-
-            </customcontrols:LogViewer>-->
-
             <GroupBox Header="Log Level" Grid.Column="0" Grid.Row="7" Margin="10,10,10,0">
                 <ComboBox x:Name="LogLevelComboBox" 
+                          SelectedValuePath="Content"
                           SelectedValue="{Binding ApplicationSettings.LogLevel, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                           SelectionChanged="LogLevelComboBox_SelectionChanged">
                     <ComboBoxItem Content="Trace"/>
@@ -98,9 +95,16 @@
 
             <customcontrols:ProgressBarWithTextControl 
                 IsEnabled="true"
-                Grid.ColumnSpan="2" Grid.Row="8" x:Name="MyProgressBar" 
-                ProgressBarValue="{Binding ElementName=this,Path=ProgressBarValue,Mode=TwoWay,UpdateSourceTrigger=PropertyChanged}"
-                                                       ></customcontrols:ProgressBarWithTextControl>
+                Grid.ColumnSpan="4" Grid.Row="8" x:Name="MyProgressBar" 
+                Margin="10,10,10,10"
+                ProgressBarValue="{Binding ElementName=this,Path=ProgressBarValue,Mode=TwoWay,UpdateSourceTrigger=PropertyChanged}">
+</customcontrols:ProgressBarWithTextControl>
+
+<customcontrols:LogViewer x:Name="ApplicationLogViewer"
+                          Grid.ColumnSpan="4"
+                          Grid.Row="9"
+                          Margin="10,0,10,10"
+                          MinHeight="180" />
         </Grid>
     </DockPanel>
 </Window>

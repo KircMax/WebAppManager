@@ -1,5 +1,5 @@
 ﻿<!--
-    // Copyright (c) 2022, Siemens AG
+    // Copyright (c) 2026, Siemens AG
     //
     // SPDX-License-Identifier: MIT
 -->
@@ -12,11 +12,36 @@
              mc:Ignorable="d" 
              d:DesignHeight="450" d:DesignWidth="800">
     <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="563*"/>
-            <ColumnDefinition Width="197*"/>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="Auto"/>
         </Grid.ColumnDefinitions>
-        <ProgressBar Minimum="0" Maximum="100" Value="5" Name="pbStatus" Grid.ColumnSpan="2" />
-        <TextBlock Text="{Binding ElementName=pbStatus, Path=Value, StringFormat={}{0:0}%}" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="372,0,0,0" />
+        
+        <!-- Status text above progress bar -->
+        <TextBlock Grid.Row="0" Grid.ColumnSpan="2" 
+                   Text="{Binding ProgressBarValue.StatusText}" 
+                   HorizontalAlignment="Left" 
+                   VerticalAlignment="Center" 
+                   Margin="0,0,0,5"
+                   FontWeight="SemiBold"/>
+        
+        <!-- Progress bar -->
+        <ProgressBar Grid.Row="1" Grid.Column="0"
+                     Minimum="0" Maximum="100" 
+                     Value="{Binding ProgressBarValue.Value}" 
+                     Name="pbStatus" 
+                     Height="25"/>
+        
+        <!-- Percentage text -->
+        <TextBlock Grid.Row="1" Grid.Column="1"
+                   Text="{Binding ElementName=pbStatus, Path=Value, StringFormat={}{0:0}%}" 
+                   HorizontalAlignment="Center" 
+                   VerticalAlignment="Center" 
+                   Margin="10,0,0,0"
+                   FontWeight="Bold"/>
     </Grid>
 </UserControl>

@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2025, Siemens AG
+﻿// Copyright (c) 2026, Siemens AG
 //
 // SPDX-License-Identifier: MIT
 using Newtonsoft.Json;
@@ -7,7 +7,6 @@ using System.Collections.ObjectModel;
 using System.IO;
 using System.Windows;
 using System.Windows.Forms;
-using System.Windows.Media;
 using Webserver.Api.Gui.Settings;
 
 namespace Webserver.Api.Gui.Pages
@@ -155,53 +154,53 @@ namespace Webserver.Api.Gui.Pages
                 }
 
                 var workingArea = screen.WorkingArea;
-                
+
                 // Get DPI scaling factor
                 var dpiScale = GetDpiScale(window);
-                
+
                 // Calculate scaled coordinates
                 var scaledLeft = workingArea.Left / dpiScale.DpiScaleX;
                 var scaledTop = workingArea.Top / dpiScale.DpiScaleY;
                 var scaledWidth = workingArea.Width / dpiScale.DpiScaleX;
                 var scaledHeight = workingArea.Height / dpiScale.DpiScaleY;
-                
+
                 // Ensure window size is reasonable and fits on screen
                 var windowWidth = window.Width;
                 var windowHeight = window.Height;
-                
+
                 // If window size is not set or NaN, use a default size
                 if (double.IsNaN(windowWidth) || windowWidth <= 0)
                 {
                     windowWidth = Math.Min(800, scaledWidth * 0.8);
                     window.Width = windowWidth;
                 }
-                
+
                 if (double.IsNaN(windowHeight) || windowHeight <= 0)
                 {
                     windowHeight = Math.Min(600, scaledHeight * 0.8);
                     window.Height = windowHeight;
                 }
-                
+
                 // Center the window on the target screen, with some margin from edges
-                var margin = 50 / dpiScale.DpiScaleX; // 50 pixel margin, scaled
+                var margin = StandardValues.DefaultWindowMargin / dpiScale.DpiScaleX;
                 var left = scaledLeft + margin;
                 var top = scaledTop + margin;
-                
+
                 // Ensure the window fits completely on the screen
                 if (left + windowWidth > scaledLeft + scaledWidth)
                 {
                     left = scaledLeft + scaledWidth - windowWidth - margin;
                 }
-                
+
                 if (top + windowHeight > scaledTop + scaledHeight)
                 {
                     top = scaledTop + scaledHeight - windowHeight - margin;
                 }
-                
+
                 // Final bounds check
                 left = Math.Max(scaledLeft, left);
                 top = Math.Max(scaledTop, top);
-                
+
                 window.Left = left;
                 window.Top = top;
             }
@@ -212,7 +211,7 @@ namespace Webserver.Api.Gui.Pages
                 window.WindowStartupLocation = WindowStartupLocation.CenterScreen;
             }
         }
-        
+
         private (double DpiScaleX, double DpiScaleY) GetDpiScale(Window window)
         {
             try
@@ -220,7 +219,7 @@ namespace Webserver.Api.Gui.Pages
                 var source = PresentationSource.FromVisual(window);
                 if (source?.CompositionTarget != null)
                 {
-                    return (source.CompositionTarget.TransformToDevice.M11, 
+                    return (source.CompositionTarget.TransformToDevice.M11,
                            source.CompositionTarget.TransformToDevice.M22);
                 }
             }
@@ -228,7 +227,7 @@ namespace Webserver.Api.Gui.Pages
             {
                 // Fallback if we can't get DPI info
             }
-            
+
             // Default DPI scaling (96 DPI = 1.0 scale)
             return (1.0, 1.0);
         }

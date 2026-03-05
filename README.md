@@ -1,4 +1,5 @@
 - [GUI for WebApplication Deployment](#gui-for-webapplication-deployment)
+- [System Requirements](#system-requirements)
 - [WebAppConfigCreatorWindow](#webappconfigcreatorwindow)
 - [Mainwindow](#mainwindow)
 - [PlcRackConfigCreatorWindow](#plcrackconfigcreatorwindow)
@@ -6,6 +7,10 @@
   
 ![1518F](src/WebAppManager/screens/1518F.png)
 # GUI for WebApplication Deployment 
+
+# System Requirements 
+see also: [SYSTEM_REQUIREMENTS](SYSTEM_REQUIREMENTS.md)
+
 ![Deployment](src/WebAppManager/screens/Gif.gif)
 
 On the MainWindow you can select the webapps to deploy and the racks you want to deploy to:
