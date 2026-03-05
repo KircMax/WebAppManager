@@ -13,8 +13,8 @@
         xmlns:local="clr-namespace:Webserver.Api.Gui"
         xmlns:CustomControls="clr-namespace:Webserver.Api.Gui.CustomControls" xmlns:customcontrols="clr-namespace:Siemens.Simatic.S7.Webserver.API.WebApplicationManager.CustomControls"
         mc:Ignorable="d"
-        Height="740" Width="800"
-        MinHeight="740" MinWidth="800">
+        Height="860" Width="980"
+        MinHeight="820" MinWidth="900">
     <DockPanel>
         <Menu DockPanel.Dock="Top" FontSize="12" x:Name="MenuElement">
             <MenuItem Header="_File">
@@ -80,11 +80,12 @@
 
             <GroupBox Header="Log Level" Grid.Column="0" Grid.Row="7" Margin="10,10,10,0">
                 <ComboBox x:Name="LogLevelComboBox" 
+                          SelectedValuePath="Content"
                           SelectedValue="{Binding ApplicationSettings.LogLevel, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                           SelectionChanged="LogLevelComboBox_SelectionChanged">
                     <ComboBoxItem Content="Trace"/>
                     <ComboBoxItem Content="Debug"/>
-                    <ComboBoxItem Content="Information" IsSelected="True"/>
+                    <ComboBoxItem Content="Information"/>
                     <ComboBoxItem Content="Warning"/>
                     <ComboBoxItem Content="Error"/>
                     <ComboBoxItem Content="Critical"/>
