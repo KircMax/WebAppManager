@@ -104,7 +104,7 @@ namespace Webserver.Api.Gui
         public static InMemoryLogSaver ApplicationLogger { get; set; }
 
 
-        public MainWindow()
+        public MainWindow()ly v
         {
             this.Title = $"WebApplicationManager @ {System.Reflection.Assembly.GetExecutingAssembly().GetName().Version}";
             InitSettings();
