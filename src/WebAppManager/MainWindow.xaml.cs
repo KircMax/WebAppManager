@@ -326,30 +326,29 @@ namespace Webserver.Api.Gui
             {
                 requestHandler = (ApiHttpClientRequestHandler)await ServiceFactory.GetApiHttpClientRequestHandlerAsync(plc, credentials.UserName, credentials.Password);
             }
-            catch (HttpRequestException ex) when (ex.InnerException is WebException webEx)
+            catch(Exception e)
             {
-                // Check if this is specifically an SSL/TLS certificate error
-                bool isCertificateError = ex.InnerException.Message.Contains("trust relationship") ||
-                                         ex.InnerException.Message.Contains("Vertrauensstellung") ||
-                                         ex.InnerException.Message.Contains("SSL") ||
-                                         ex.InnerException.Message.Contains("TLS");
-
-                if (isCertificateError)
+                MessageBoxResult result = MessageBoxResult.Yes;
+                if (RunWithCertificateCallbackDialog)
                 {
-                    MessageBoxResult result = MessageBoxResult.Yes;
-                    if (RunWithCertificateCallbackDialog)
+                    var message = $"The plc {plc} certificate was not considered trusted! Do you want to connect anyways? - " +
+                        $"{GetExceptionMessage(e)}";
+                    LogMessage(message);
+                    result = System.Windows.MessageBox.Show(message, "ERR_CERT_AUTHORITY_INVALID", MessageBoxButton.YesNo);
+                }
+                if (result == MessageBoxResult.Yes)
+                {
+                    PlcsToTrust.Add(plc);
+                    try
                     {
-                        result = System.Windows.MessageBox.Show($"The plc {plc} certificate was not considered trusted! Do you want to connect anyways?", "ERR_CERT_AUTHORITY_INVALID", MessageBoxButton.YesNo);
-                    }
-
-                    if (result == MessageBoxResult.Yes)
-                    {
-                        PlcsToTrust.Add(plc);
                         requestHandler = (ApiHttpClientRequestHandler)await ServiceFactory.GetApiHttpClientRequestHandlerAsync(plc, credentials.UserName, credentials.Password);
                     }
-                    else
+                    catch(Exception ex)
                     {
-                        throw;
+                        var message = $"Still have not been able to connect!: " +
+                            $"{GetExceptionMessage(ex)}";
+                        LogMessage(message);
+                        result = System.Windows.MessageBox.Show(message, "ERR_CERT_AUTHORITY_INVALID");
                     }
                 }
                 else
@@ -358,6 +357,11 @@ namespace Webserver.Api.Gui
                 }
             }
             return requestHandler;
+        }
+
+        private string GetExceptionMessage(Exception e)
+        {
+            return e.GetType() + ":" + e.Message + Environment.NewLine + (e.InnerException != null ? $" - Inner: {e.InnerException.Message}" : "");
         }
 
         private async Task CheckPermissionsAsync(string plc, ApiHttpClientRequestHandler requestHandler, NetworkCredential credentials)
@@ -399,7 +403,7 @@ namespace Webserver.Api.Gui
             var deployers = new List<(string plc, ApiWebAppDeployer deployer, ApiHttpClientRequestHandler requestHandler)>();
             List<string> plcsToDeployTo = new List<string>();
             StringBuilder message = new StringBuilder();
-            ServicePointManager.ServerCertificateValidationCallback += Certificate_Validation_Callback;
+            Siemens.Simatic.S7.Webserver.API.Services.ServerCertificateCallback.CertificateCallback = Certificate_Validation_Callback;
 
             foreach (var entry in this.ApplicationSettings.RackSelectionSettings.SelectedItems)
             {
@@ -917,9 +921,8 @@ namespace Webserver.Api.Gui
             {
                 return true;
             }
-            if (mysender is System.Net.HttpWebRequest)
+            if (mysender is System.Net.HttpWebRequest mySenderRequest)
             {
-                var mySenderRequest = mysender as HttpWebRequest;
                 var host = mySenderRequest.Address.Host;
                 var cert = new X509Certificate2(certificate);
                 if (PlcsToTrust.Contains(host))
@@ -928,6 +931,21 @@ namespace Webserver.Api.Gui
                 }
                 bool certIsTemporarilyTrusted = TemporarilyTrustedCertificates.Contains(cert);
                 return certIsTemporarilyTrusted;
+            }
+            else if (mysender is HttpRequestMessage httpRequestMessage)
+            {
+                var host = httpRequestMessage.RequestUri.Host;
+                var cert = new X509Certificate2(certificate);
+                if (PlcsToTrust.Contains(host))
+                {
+                    TemporarilyTrustedCertificates.Add(cert);
+                }
+                bool certIsTemporarilyTrusted = TemporarilyTrustedCertificates.Contains(cert);
+                return certIsTemporarilyTrusted;
+            }
+            else
+            {
+                LogMessage($"In the callback with: {mysender}, {certificate}, {chain}, {sslPolicyErrors}");
             }
             return false;
         }
@@ -1056,7 +1074,7 @@ namespace Webserver.Api.Gui
                 List<Task> tasks = new List<Task>();
                 StringBuilder message = new StringBuilder();
                 PlcsToTrust = new List<string>();
-                ServicePointManager.ServerCertificateValidationCallback += Certificate_Validation_Callback;
+                Siemens.Simatic.S7.Webserver.API.Services.ServerCertificateCallback.CertificateCallback = Certificate_Validation_Callback;
 
                 foreach (var entry in this.ApplicationSettings.RackSelectionSettings.SelectedItems)
                 {
